@@ -1,0 +1,216 @@
+import { useState } from 'react'
+import MetricsPanel from './MetricsPanel'
+
+function generateChartData(label, status) {
+  const seed = label.length * 11
+  const latencyData = []
+  const tpsData = []
+  for (let i = 0; i < 20; i++) {
+    const base = status === 'critical' ? 150 : status === 'warning' ? 80 : 20
+    const latVal = base + ((seed * (i + 3) * 17) % 60) - 20
+    const tpsVal = 20000 + ((seed * (i + 1) * 23) % 15000)
+    latencyData.push({ time: `${i}s`, value: Math.max(5, latVal) })
+    tpsData.push({ time: `${i}s`, value: tpsVal })
+  }
+  return { latencyData, tpsData }
+}
+
+function generateLogs(label, status) {
+  if (status === 'critical') {
+    return [
+      { text: `ERROR: ${label} — connection timeout after 5000ms`, type: 'error' },
+      { text: `ERROR: ${label} — SLA breach detected`, type: 'error' },
+      { text: `WARNING: ${label} — memory utilization spike`, type: 'warning' },
+      { text: `INFO: ${label} — failover initiated`, type: 'info' }
+    ]
+  }
+  if (status === 'warning') {
+    return [
+      { text: `WARNING: ${label} — latency increased 3x`, type: 'warning' },
+      { text: `WARNING: ${label} — upstream dependency delayed`, type: 'warning' },
+      { text: `INFO: ${label} — circuit breaker triggered`, type: 'info' }
+    ]
+  }
+  if (status === 'paused') {
+    return [
+      { text: `INFO: ${label} — service paused by operator`, type: 'info' },
+      { text: `INFO: ${label} — draining active connections`, type: 'info' }
+    ]
+  }
+  return [
+    { text: `INFO: ${label} — all systems nominal`, type: 'info' },
+    { text: `INFO: ${label} — health check passed`, type: 'info' }
+  ]
+}
+
+export default function NodeDetailPanel({
+  node,
+  onClose,
+  onRestart,
+  onPause,
+  onScale
+}) {
+  const [activeTab, setActiveTab] = useState('overview')
+
+  if (!node) return null
+
+  const { data } = node
+  const logs = generateLogs(data.label, data.status)
+  const { latencyData, tpsData } = generateChartData(data.label, data.status)
+  const rootCause = data.status === 'critical'
+    ? `${data.label} experiencing cascading failure — SLA breach`
+    : data.status === 'warning'
+    ? `${data.label} degraded — upstream dependency issue`
+    : 'Healthy'
+
+  const statusColors = {
+    healthy: 'var(--status-healthy)',
+    warning: 'var(--status-warning)',
+    critical: 'var(--status-critical)',
+    paused: 'var(--status-paused)'
+  }
+
+  return (
+    <div className="panel panel--right">
+      <div className="panel-header">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)' }}>
+            {data.label}
+          </span>
+          <span
+            className={`status-badge status-badge--${data.status}`}
+            style={{ fontSize: '10px', padding: '3px 8px' }}
+          >
+            <span className={`status-dot status-dot--${data.status}`} />
+            {data.status}
+          </span>
+        </div>
+        <button className="close-btn" onClick={onClose} title="Close (Esc)">✕</button>
+      </div>
+
+      <div className="panel-body">
+        {/* Tabs */}
+        <div className="tabs">
+          <button className={`tab ${activeTab === 'overview' ? 'tab--active' : ''}`} onClick={() => setActiveTab('overview')}>
+            Overview
+          </button>
+          <button className={`tab ${activeTab === 'logs' ? 'tab--active' : ''}`} onClick={() => setActiveTab('logs')}>
+            Logs
+          </button>
+          <button className={`tab ${activeTab === 'deps' ? 'tab--active' : ''}`} onClick={() => setActiveTab('deps')}>
+            Info
+          </button>
+        </div>
+
+        {/* Overview Tab */}
+        {activeTab === 'overview' && (
+          <div style={{ animation: 'fadeIn 0.3s ease-out' }}>
+            {/* Manager & SLA */}
+            {(data.manager || data.sla) && (
+              <div className="glass-card glass-card--compact" style={{ marginBottom: '12px' }}>
+                {data.manager && (
+                  <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                    👤 <strong>Manager:</strong> {data.manager}
+                  </div>
+                )}
+                {data.sla && (
+                  <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                    📋 <strong>SLA:</strong> {data.sla}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Metric Cards */}
+            <div className="metric-grid">
+              <div className="metric-card">
+                <div className="metric-label">Latency</div>
+                <div className={`metric-value ${
+                  parseInt(data.latency) > 100 ? 'metric-value--critical' :
+                  parseInt(data.latency) > 50 ? 'metric-value--warning' :
+                  'metric-value--accent'
+                }`}>{data.latency}</div>
+              </div>
+              <div className="metric-card">
+                <div className="metric-label">Throughput</div>
+                <div className="metric-value metric-value--accent">{data.tps}</div>
+              </div>
+              <div className="metric-card">
+                <div className="metric-label">CPU Usage</div>
+                <div className={`metric-value ${
+                  parseInt(data.cpu) > 80 ? 'metric-value--critical' :
+                  parseInt(data.cpu) > 60 ? 'metric-value--warning' :
+                  'metric-value--healthy'
+                }`}>{data.cpu}</div>
+              </div>
+              <div className="metric-card">
+                <div className="metric-label">Status</div>
+                <div className="metric-value" style={{ color: statusColors[data.status], fontSize: '16px' }}>
+                  {data.status.charAt(0).toUpperCase() + data.status.slice(1)}
+                </div>
+              </div>
+            </div>
+
+            <MetricsPanel latencyData={latencyData} tpsData={tpsData} />
+
+            <div className="section-label">Root Cause Analysis</div>
+            <div className="glass-card glass-card--compact">
+              <div style={{ fontSize: '13px', color: rootCause === 'Healthy' ? 'var(--status-healthy)' : 'var(--status-warning)', lineHeight: 1.5 }}>
+                {rootCause}
+              </div>
+            </div>
+
+            <div className="section-label">Actions</div>
+            <div className="controls-group">
+              <button className="btn btn--success btn--sm" onClick={onRestart}>↻ Restart</button>
+              <button className="btn btn--ghost btn--sm" onClick={onPause}>⏸ Pause</button>
+              <button className="btn btn--primary btn--sm" onClick={onScale}>⚡ Scale</button>
+            </div>
+            <div style={{ marginTop: '6px', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+              <span className="kbd">R</span>
+              <span style={{ fontSize: '10px', color: 'var(--text-muted)', lineHeight: '20px' }}>Restart</span>
+              <span className="kbd">Esc</span>
+              <span style={{ fontSize: '10px', color: 'var(--text-muted)', lineHeight: '20px' }}>Close</span>
+            </div>
+          </div>
+        )}
+
+        {/* Logs Tab */}
+        {activeTab === 'logs' && (
+          <div style={{ animation: 'fadeIn 0.3s ease-out' }}>
+            {logs.map((log, idx) => (
+              <div key={idx} className={`log-entry log-entry--${log.type}`}>{log.text}</div>
+            ))}
+          </div>
+        )}
+
+        {/* Info Tab */}
+        {activeTab === 'deps' && (
+          <div style={{ animation: 'fadeIn 0.3s ease-out' }}>
+            <div className="section-label">Component Details</div>
+            <div className="glass-card glass-card--compact">
+              <div className="agg-metric">
+                <span className="agg-metric-label">Name</span>
+                <span className="agg-metric-value" style={{ fontSize: '13px' }}>{data.label}</span>
+              </div>
+              <div className="agg-metric">
+                <span className="agg-metric-label">Manager</span>
+                <span className="agg-metric-value" style={{ fontSize: '13px' }}>{data.manager || '—'}</span>
+              </div>
+              <div className="agg-metric">
+                <span className="agg-metric-label">SLA</span>
+                <span className="agg-metric-value" style={{ fontSize: '13px' }}>{data.sla || '—'}</span>
+              </div>
+              <div className="agg-metric">
+                <span className="agg-metric-label">Status</span>
+                <span className="agg-metric-value" style={{ fontSize: '13px', color: statusColors[data.status] }}>
+                  {data.status}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
