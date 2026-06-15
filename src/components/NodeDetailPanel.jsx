@@ -100,6 +100,9 @@ export default function NodeDetailPanel({
           <button className={`tab ${activeTab === 'deps' ? 'tab--active' : ''}`} onClick={() => setActiveTab('deps')}>
             Info
           </button>
+          <button className={`tab ${activeTab === 'integration' ? 'tab--active' : ''}`} onClick={() => setActiveTab('integration')}>
+            Integration
+          </button>
         </div>
 
         {/* Overview Tab */}
@@ -187,29 +190,52 @@ export default function NodeDetailPanel({
         {/* Info Tab */}
         {activeTab === 'deps' && (
           <div style={{ animation: 'fadeIn 0.3s ease-out' }}>
-            <div className="section-label">Component Details</div>
+            <div className="section-label">Component Configuration</div>
             <div className="glass-card glass-card--compact">
-              <div className="agg-metric">
-                <span className="agg-metric-label">Name</span>
-                <span className="agg-metric-value" style={{ fontSize: '13px' }}>{data.label}</span>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px' }}>
+                <strong>Component ID:</strong> <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent-blue)' }}>{data.label.toLowerCase().replace(/\s+/g, '_')}</span>
               </div>
-              <div className="agg-metric">
-                <span className="agg-metric-label">Manager</span>
-                <span className="agg-metric-value" style={{ fontSize: '13px' }}>{data.manager || '—'}</span>
-              </div>
-              <div className="agg-metric">
-                <span className="agg-metric-label">SLA</span>
-                <span className="agg-metric-value" style={{ fontSize: '13px' }}>{data.sla || '—'}</span>
-              </div>
-              <div className="agg-metric">
-                <span className="agg-metric-label">Status</span>
-                <span className="agg-metric-value" style={{ fontSize: '13px', color: statusColors[data.status] }}>
-                  {data.status}
-                </span>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                <strong>Common Link Usage:</strong><br/>
+                <span style={{ color: 'var(--text-primary)' }}>{data.linkUsage || 'Not specified'}</span>
               </div>
             </div>
           </div>
         )}
+
+        {/* Integration Tab */}
+        {activeTab === 'integration' && (
+          <div style={{ animation: 'fadeIn 0.3s ease-out' }}>
+            <div className="section-label">Real-Time Data Ingestion</div>
+            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '16px', lineHeight: 1.5 }}>
+              Link your actual servers to this component by pushing events to our ingestion API. 
+              When your service completes a task, send a webhook containing the specific entity ID (e.g., Order ID) to track it live on this dashboard.
+            </p>
+            
+            <div className="section-label">cURL Example</div>
+            <div className="glass-card glass-card--compact" style={{ background: '#020617', border: '1px solid var(--border-subtle)' }}>
+              <pre style={{ margin: 0, fontSize: '11px', fontFamily: 'var(--font-mono)', color: '#e2e8f0', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+{`curl -X POST https://api.stock-observability.com/v1/events \\
+  -H "Authorization: Bearer YOUR_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "component_id": "${data.label.toLowerCase().replace(/\s+/g, '_')}",
+    "entity_id": "ORD-12345",
+    "status": "healthy",
+    "duration_ms": 145,
+    "message": "Processed successfully"
+  }'`}
+              </pre>
+            </div>
+            <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '12px' }}>
+              SDKs for Node.js, Python, and Go are also available in our documentation.
+            </p>
+          </div>
+        )}
+      </div>
+
+      <div className="panel-footer">
+        <button className="btn btn--ghost" onClick={onClose} style={{ width: '100%' }}>Close Details</button>
       </div>
     </div>
   )
