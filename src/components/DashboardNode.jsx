@@ -26,20 +26,40 @@ const handleStyle = {
   border: '2px solid var(--bg-secondary)'
 }
 
+const ROLE_CONFIG = {
+  start: { icon: '▶', badge: 'START', badgeClass: 'dash-node-badge--start' },
+  end: { icon: '🏁', badge: 'END', badgeClass: 'dash-node-badge--end' },
+  intermediate: { icon: null, badge: null, badgeClass: null }
+}
+
 export default function DashboardNode({ data }) {
   const status = data.status || 'healthy'
+  const role = data.role || 'intermediate'
+  const config = ROLE_CONFIG[role]
   const sparkline = useMemo(() => generateSparklineData(data.label, status), [data.label, status])
 
   const nodeClasses = [
     'service-node',
     `service-node--${status}`,
-    data.selected ? 'service-node--selected' : ''
+    data.selected ? 'service-node--selected' : '',
+    role !== 'intermediate' ? `service-node--${role}` : ''
   ].filter(Boolean).join(' ')
 
   return (
     <div className={nodeClasses}>
-      <Handle type="target" position={Position.Top} style={handleStyle} />
-      <Handle type="target" position={Position.Left} id="left-target" style={handleStyle} />
+      {role !== 'start' && (
+        <>
+          <Handle type="target" position={Position.Top} style={handleStyle} />
+          <Handle type="target" position={Position.Left} id="left-target" style={handleStyle} />
+        </>
+      )}
+
+      {/* Role badge */}
+      {config.badge && (
+        <div className={`dash-node-badge ${config.badgeClass}`}>
+          {config.icon} {config.badge}
+        </div>
+      )}
 
       <div className="service-node-header">
         <div className="service-node-name">{data.label}</div>
@@ -95,8 +115,12 @@ export default function DashboardNode({ data }) {
         ))}
       </div>
 
-      <Handle type="source" position={Position.Bottom} style={handleStyle} />
-      <Handle type="source" position={Position.Right} id="right-source" style={handleStyle} />
+      {role !== 'end' && (
+        <>
+          <Handle type="source" position={Position.Bottom} style={handleStyle} />
+          <Handle type="source" position={Position.Right} id="right-source" style={handleStyle} />
+        </>
+      )}
     </div>
   )
 }

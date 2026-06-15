@@ -35,19 +35,19 @@ function AppContent() {
 
     // Pre-built components
     const components = [
-      { id: 'demo_hr', name: 'HR Portal', manager: 'Priya Sharma', sla: '99.9%', linkUsage: 'Collects employee email during onboarding', latency: '12ms', tps: '5k/sec', cpu: '22%' },
-      { id: 'demo_google', name: 'Google Workspace', manager: 'Rahul Mehta', sla: '99.95%', linkUsage: 'Creates Gmail account using email', latency: '45ms', tps: '3k/sec', cpu: '35%' },
-      { id: 'demo_company', name: 'Company ID System', manager: 'Anita Desai', sla: '99.5%', linkUsage: 'Generates employee ID linked to email', latency: '30ms', tps: '4k/sec', cpu: '28%' },
-      { id: 'demo_pf', name: 'PF Registration', manager: 'Vikram Singh', sla: '< 500ms', linkUsage: 'Registers PF account using email as identifier', latency: '120ms', tps: '2k/sec', cpu: '45%' },
-      { id: 'demo_it', name: 'IT Setup', manager: 'Sneha Patil', sla: '99.0%', linkUsage: 'Provisions laptop & VPN access using email', latency: '80ms', tps: '1k/sec', cpu: '55%' }
+      { id: 'demo_hr', name: 'HR Portal', manager: 'Priya Sharma', sla: '99.9%', role: 'start', linkUsage: 'Collects employee email during onboarding', latency: '12ms', tps: '5k/sec', cpu: '22%' },
+      { id: 'demo_google', name: 'Google Workspace', manager: 'Rahul Mehta', sla: '99.95%', role: 'intermediate', linkUsage: 'Creates Gmail account using email', latency: '45ms', tps: '3k/sec', cpu: '35%' },
+      { id: 'demo_company', name: 'Company ID System', manager: 'Anita Desai', sla: '99.5%', role: 'intermediate', linkUsage: 'Generates employee ID linked to email', latency: '30ms', tps: '4k/sec', cpu: '28%' },
+      { id: 'demo_pf', name: 'PF Registration', manager: 'Vikram Singh', sla: '< 500ms', role: 'intermediate', linkUsage: 'Registers PF account using email as identifier', latency: '120ms', tps: '2k/sec', cpu: '45%' },
+      { id: 'demo_it', name: 'IT Setup', manager: 'Sneha Patil', sla: '99.0%', role: 'end', linkUsage: 'Provisions laptop & VPN access using email', latency: '80ms', tps: '1k/sec', cpu: '55%' }
     ]
 
     const nodes = [
-      { id: 'demo_hr', type: 'builderNode', position: { x: 350, y: 0 }, data: { name: 'HR Portal', manager: 'Priya Sharma', sla: '99.9%', linkUsage: 'Collects employee email during onboarding', componentId: 'demo_hr' } },
-      { id: 'demo_google', type: 'builderNode', position: { x: 50, y: 280 }, data: { name: 'Google Workspace', manager: 'Rahul Mehta', sla: '99.95%', linkUsage: 'Creates Gmail account using email', componentId: 'demo_google' } },
-      { id: 'demo_company', type: 'builderNode', position: { x: 350, y: 280 }, data: { name: 'Company ID System', manager: 'Anita Desai', sla: '99.5%', linkUsage: 'Generates employee ID linked to email', componentId: 'demo_company' } },
-      { id: 'demo_pf', type: 'builderNode', position: { x: 650, y: 280 }, data: { name: 'PF Registration', manager: 'Vikram Singh', sla: '< 500ms', linkUsage: 'Registers PF account using email as identifier', componentId: 'demo_pf' } },
-      { id: 'demo_it', type: 'builderNode', position: { x: 350, y: 560 }, data: { name: 'IT Setup', manager: 'Sneha Patil', sla: '99.0%', linkUsage: 'Provisions laptop & VPN access using email', componentId: 'demo_it' } }
+      { id: 'demo_hr', type: 'builderNode', position: { x: 350, y: 0 }, data: { name: 'HR Portal', manager: 'Priya Sharma', sla: '99.9%', role: 'start', linkUsage: 'Collects employee email during onboarding', componentId: 'demo_hr' } },
+      { id: 'demo_google', type: 'builderNode', position: { x: 50, y: 280 }, data: { name: 'Google Workspace', manager: 'Rahul Mehta', sla: '99.95%', role: 'intermediate', linkUsage: 'Creates Gmail account using email', componentId: 'demo_google' } },
+      { id: 'demo_company', type: 'builderNode', position: { x: 350, y: 280 }, data: { name: 'Company ID System', manager: 'Anita Desai', sla: '99.5%', role: 'intermediate', linkUsage: 'Generates employee ID linked to email', componentId: 'demo_company' } },
+      { id: 'demo_pf', type: 'builderNode', position: { x: 650, y: 280 }, data: { name: 'PF Registration', manager: 'Vikram Singh', sla: '< 500ms', role: 'intermediate', linkUsage: 'Registers PF account using email as identifier', componentId: 'demo_pf' } },
+      { id: 'demo_it', type: 'builderNode', position: { x: 350, y: 560 }, data: { name: 'IT Setup', manager: 'Sneha Patil', sla: '99.0%', role: 'end', linkUsage: 'Provisions laptop & VPN access using email', componentId: 'demo_it' } }
     ]
 
     const edges = [

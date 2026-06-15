@@ -173,7 +173,7 @@ export default function WorkflowBuilder() {
     setEdgeMenuPos(null)
   }, [])
 
-  const handleAddComponent = useCallback(({ name, manager, sla, linkUsage }) => {
+  const handleAddComponent = useCallback(({ name, manager, sla, role, linkUsage }) => {
     if (!editingWorkflowId) return
     const compId = addComponent(editingWorkflowId, { name, manager, sla })
 
@@ -185,7 +185,7 @@ export default function WorkflowBuilder() {
       type: 'builderNode',
       position: { x: 100 + col * 300, y: 80 + row * 280 },
       data: {
-        name, manager, sla, linkUsage,
+        name, manager, sla, role: role || 'intermediate', linkUsage,
         componentId: compId,
         onEdit: handleEditComponent,
         onDelete: handleDeleteComponent
@@ -196,13 +196,13 @@ export default function WorkflowBuilder() {
     setHasChanges(true)
   }, [editingWorkflowId, nodes.length, addComponent, handleEditComponent, handleDeleteComponent])
 
-  const handleUpdateComponent = useCallback(({ name, manager, sla, linkUsage }) => {
+  const handleUpdateComponent = useCallback(({ name, manager, sla, role, linkUsage }) => {
     if (!editingWorkflowId || !editingComponentId) return
-    updateComponent(editingWorkflowId, editingComponentId, { name, manager, sla, linkUsage })
+    updateComponent(editingWorkflowId, editingComponentId, { name, manager, sla, role, linkUsage })
     setNodes(prev =>
       prev.map(n =>
         n.id === editingComponentId
-          ? { ...n, data: { ...n.data, name, manager, sla, linkUsage } }
+          ? { ...n, data: { ...n.data, name, manager, sla, role: role || 'intermediate', linkUsage } }
           : n
       )
     )
@@ -219,6 +219,7 @@ export default function WorkflowBuilder() {
         name: data.name,
         manager: data.manager,
         sla: data.sla,
+        role: data.role || 'intermediate',
         linkUsage: data.linkUsage || '',
         componentId: data.componentId
       }
@@ -263,6 +264,7 @@ export default function WorkflowBuilder() {
     const localNode = nodes.find(n => n.id === editingComponentId)
     return {
       name: comp.name, manager: comp.manager, sla: comp.sla,
+      role: localNode?.data?.role || comp.role || 'intermediate',
       linkUsage: localNode?.data?.linkUsage || comp.linkUsage || ''
     }
   }, [editingComponentId, workflow, nodes])

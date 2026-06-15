@@ -7,11 +7,37 @@ const handleStyle = {
   border: '2px solid var(--bg-secondary)',
 }
 
+const ROLE_CONFIG = {
+  start: { icon: '▶', badge: 'START', badgeClass: 'builder-node-badge--start' },
+  end: { icon: '🏁', badge: 'END', badgeClass: 'builder-node-badge--end' },
+  intermediate: { icon: null, badge: null, badgeClass: null }
+}
+
 export default function BuilderNode({ data }) {
+  const role = data.role || 'intermediate'
+  const config = ROLE_CONFIG[role]
+
+  const nodeClasses = [
+    'builder-node',
+    role !== 'intermediate' ? `builder-node--${role}` : ''
+  ].filter(Boolean).join(' ')
+
   return (
-    <div className="builder-node">
-      <Handle type="target" position={Position.Top} style={handleStyle} />
-      <Handle type="target" position={Position.Left} id="left-target" style={handleStyle} />
+    <div className={nodeClasses}>
+      {/* Start nodes only have source handles (outgoing) */}
+      {role !== 'start' && (
+        <>
+          <Handle type="target" position={Position.Top} style={handleStyle} />
+          <Handle type="target" position={Position.Left} id="left-target" style={handleStyle} />
+        </>
+      )}
+
+      {/* Role badge */}
+      {config.badge && (
+        <div className={`builder-node-badge ${config.badgeClass}`}>
+          {config.icon} {config.badge}
+        </div>
+      )}
 
       <div className="builder-node-header">
         <span className="builder-node-name">{data.name}</span>
@@ -38,8 +64,13 @@ export default function BuilderNode({ data }) {
         )}
       </div>
 
-      <Handle type="source" position={Position.Bottom} style={handleStyle} />
-      <Handle type="source" position={Position.Right} id="right-source" style={handleStyle} />
+      {/* End nodes only have target handles (incoming) */}
+      {role !== 'end' && (
+        <>
+          <Handle type="source" position={Position.Bottom} style={handleStyle} />
+          <Handle type="source" position={Position.Right} id="right-source" style={handleStyle} />
+        </>
+      )}
     </div>
   )
 }

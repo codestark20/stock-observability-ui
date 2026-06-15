@@ -1,5 +1,11 @@
 import { useState, useEffect } from 'react'
 
+const ROLE_OPTIONS = [
+  { value: 'intermediate', label: '⬡ Intermediate', desc: 'Regular workflow step' },
+  { value: 'start', label: '▶ Start', desc: 'Entry point of the workflow' },
+  { value: 'end', label: '🏁 End', desc: 'Final step of the workflow' }
+]
+
 export default function ComponentForm({
   isOpen,
   onClose,
@@ -11,6 +17,7 @@ export default function ComponentForm({
   const [name, setName] = useState('')
   const [manager, setManager] = useState('')
   const [sla, setSla] = useState('')
+  const [role, setRole] = useState('intermediate')
   const [linkUsage, setLinkUsage] = useState('')
   const [error, setError] = useState('')
 
@@ -19,6 +26,7 @@ export default function ComponentForm({
       setName(initialData?.name || '')
       setManager(initialData?.manager || '')
       setSla(initialData?.sla || '')
+      setRole(initialData?.role || 'intermediate')
       setLinkUsage(initialData?.linkUsage || '')
       setError('')
     }
@@ -44,7 +52,7 @@ export default function ComponentForm({
       setError('A component with this name already exists')
       return
     }
-    onSubmit({ name: trimmed, manager: manager.trim(), sla: sla.trim(), linkUsage: linkUsage.trim() })
+    onSubmit({ name: trimmed, manager: manager.trim(), sla: sla.trim(), role, linkUsage: linkUsage.trim() })
   }
 
   const handleKeyDown = (e) => { if (e.key === 'Enter') handleSubmit() }
@@ -70,6 +78,23 @@ export default function ComponentForm({
               onKeyDown={handleKeyDown}
               autoFocus
             />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Component Role</label>
+            <div className="role-selector">
+              {ROLE_OPTIONS.map(opt => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  className={`role-option role-option--${opt.value} ${role === opt.value ? 'role-option--active' : ''}`}
+                  onClick={() => setRole(opt.value)}
+                >
+                  <span className="role-option-label">{opt.label}</span>
+                  <span className="role-option-desc">{opt.desc}</span>
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="form-group">

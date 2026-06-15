@@ -103,6 +103,7 @@ export default function WorkflowDashboard() {
           label: comp.name,
           manager: comp.manager,
           sla: comp.sla,
+          role: n.data?.role || comp.role || 'intermediate',
           linkUsage: n.data?.linkUsage || comp.linkUsage || '',
           status: comp.status,
           latency: comp.latency,
