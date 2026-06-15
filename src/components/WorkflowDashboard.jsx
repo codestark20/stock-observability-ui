@@ -127,12 +127,44 @@ export default function WorkflowDashboard() {
       const comp = runtimeComponents.find(c => c.id === nodeId)
       const now = new Date()
       now.setSeconds(now.getSeconds() - (15 - timeOffset))
+      
+      const isCritical = comp?.status === 'critical'
+      const isWarning = comp?.status === 'warning'
+      
+      let statusCode = 200
+      let method = 'POST'
+      let message = 'Processed successfully'
+      
+      if (isCritical) {
+        statusCode = 503
+        message = 'Service Unavailable - Connection Timeout'
+      } else if (isWarning) {
+        statusCode = 429
+        message = 'Rate Limited - Degraded Performance'
+      }
+
+      const actions = ['/api/v1/process', '/api/v2/validate', 'DB Query', 'Cache Read', 'RPC Invoke']
+      const action = actions[Math.floor(Math.random() * actions.length)]
+      const methods = action.includes('Query') || action.includes('Read') ? ['GET'] : ['POST', 'PUT', 'GRPC']
+      method = methods[Math.floor(Math.random() * methods.length)]
+
+      const metadata = {
+        region: ['us-east-1', 'eu-central-1', 'ap-south-1'][Math.floor(Math.random()*3)],
+        host: `ip-10-0-${Math.floor(Math.random()*255)}-${Math.floor(Math.random()*255)}`,
+      }
+      if (isCritical) metadata.error_code = 'ERR_TIMEOUT'
+      if (isWarning) metadata.retry_count = Math.floor(Math.random() * 3) + 1
+
       logs.push({
         nodeName: comp?.name || 'Unknown',
         time: formatTime(now),
-        message: comp?.status === 'healthy' ? 'Processed successfully' : 'Processing degraded',
+        message,
         status: comp?.status || 'healthy',
-        duration: Math.floor(Math.random() * 80) + 20
+        duration: isCritical ? 5000 : isWarning ? Math.floor(Math.random() * 800) + 200 : Math.floor(Math.random() * 80) + 20,
+        action,
+        method,
+        statusCode,
+        metadata
       })
       timeOffset += 3
     }

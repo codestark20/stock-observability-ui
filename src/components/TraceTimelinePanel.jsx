@@ -21,14 +21,36 @@ export default function TraceTimelinePanel({ traceId, logs, onClose }) {
         
         {logs.map((log, i) => (
           <div key={i} className={`trace-log-item trace-log-item--${log.status}`}>
-            <div className="trace-log-time">{log.time}</div>
+            <div className="trace-log-header">
+               <div className="trace-log-time">{log.time}</div>
+               {log.duration && <div className="trace-log-duration">{log.duration}ms</div>}
+            </div>
+            
             <div className="trace-log-content">
               <div className="trace-log-node">{log.nodeName}</div>
+              {log.action && (
+                <div className="trace-log-action">
+                  <span className={`method-badge method-${log.method?.toLowerCase() || 'get'}`}>{log.method || 'EXEC'}</span>
+                  <span className="action-path">{log.action}</span>
+                  {log.statusCode && (
+                    <span className={`status-code status-${log.statusCode >= 500 ? 'error' : log.statusCode >= 400 ? 'warn' : 'ok'}`}>
+                      {log.statusCode}
+                    </span>
+                  )}
+                </div>
+              )}
               <div className="trace-log-msg">{log.message}</div>
+              
+              {log.metadata && (
+                <div className="trace-log-metadata">
+                  {Object.entries(log.metadata).map(([k, v]) => (
+                    <div key={k} className="meta-tag">
+                      <span className="meta-key">{k}:</span> <span className="meta-val">{v}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-            {log.duration && (
-               <div className="trace-log-duration">{log.duration}ms</div>
-            )}
           </div>
         ))}
       </div>
