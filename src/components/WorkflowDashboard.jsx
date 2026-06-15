@@ -57,6 +57,9 @@ export default function WorkflowDashboard() {
   const [tracePath, setTracePath] = useState([])
   const [traceLogs, setTraceLogs] = useState([])
 
+  // Layout State
+  const [isPanelOpen, setIsPanelOpen] = useState(true)
+
   // Initialize runtime state from workflow
   useEffect(() => {
     if (!workflow) return
@@ -354,7 +357,7 @@ export default function WorkflowDashboard() {
           )}
         </div>
 
-        <div className="header-center" style={{ flex: 2, display: 'flex', justifyContent: 'center', gap: '20px' }}>
+        <div className="header-center" style={{ flex: 1, display: 'flex', justifyContent: 'center', gap: '20px' }}>
           <div className="live-clock">
             <span className="live-clock-dot" />
             {formatTime(currentTime)}
@@ -367,15 +370,6 @@ export default function WorkflowDashboard() {
               </div>
             </div>
           </div>
-          <form className="trace-search-form" onSubmit={simulateTrace}>
-            <input 
-              className="trace-search-input" 
-              placeholder="Track Entity (e.g. ORD-123)" 
-              value={traceIdSearch}
-              onChange={e => setTraceIdSearch(e.target.value)}
-            />
-            <button type="submit" className="trace-search-btn">🔍 Track</button>
-          </form>
         </div>
 
         <div className="header-actions">
@@ -405,30 +399,55 @@ export default function WorkflowDashboard() {
       {/* Main Content */}
       <div className="main-content">
         {/* Left Panel */}
-        <div className="panel panel--left">
-          {activeTraceId ? (
-            <TraceTimelinePanel 
-              traceId={activeTraceId} 
-              logs={traceLogs} 
-              onClose={() => setActiveTraceId(null)} 
-            />
-          ) : (
-            <>
-              <div className="panel-header">
-                <span className="panel-title">System Health</span>
-              </div>
-              <div className="panel-body">
-                <SystemHealthPanel nodes={healthNodes} onNodeSelect={setSelectedNodeId} />
-                <div className="divider" />
-                <div className="section-label">Incident Log</div>
-                <IncidentTimeline events={incidentEvents} />
-              </div>
-            </>
-          )}
-        </div>
+        {isPanelOpen && (
+          <div className="panel panel--left">
+            {activeTraceId ? (
+              <TraceTimelinePanel 
+                traceId={activeTraceId} 
+                logs={traceLogs} 
+                onClose={() => setActiveTraceId(null)} 
+              />
+            ) : (
+              <>
+                <div className="panel-header">
+                  <span className="panel-title">System Health</span>
+                  <button className="panel-close-btn" onClick={() => setIsPanelOpen(false)}>✕</button>
+                </div>
+                <div className="panel-body">
+                  <SystemHealthPanel nodes={healthNodes} onNodeSelect={setSelectedNodeId} />
+                  <div className="divider" />
+                  <div className="section-label">Incident Log</div>
+                  <IncidentTimeline events={incidentEvents} />
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         {/* Center Graph */}
         <div className="graph-canvas">
+          {/* Canvas Overlays */}
+          <div className="canvas-overlays">
+            {!isPanelOpen && (
+              <button className="btn btn--ghost btn--sm panel-toggle-btn" onClick={() => setIsPanelOpen(true)}>
+                ◧ Show Health Panel
+              </button>
+            )}
+            
+            <form className="trace-search-form canvas-search-form" onSubmit={e => {
+               simulateTrace(e)
+               if (!isPanelOpen && traceIdSearch.trim()) setIsPanelOpen(true) // auto open panel when tracking
+            }}>
+              <input 
+                className="trace-search-input" 
+                placeholder="Track Entity (e.g. ORD-123)" 
+                value={traceIdSearch}
+                onChange={e => setTraceIdSearch(e.target.value)}
+              />
+              <button type="submit" className="trace-search-btn">🔍 Track</button>
+            </form>
+          </div>
+
           <ReactFlow
             nodes={flowNodes}
             edges={flowEdges}

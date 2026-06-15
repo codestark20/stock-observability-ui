@@ -2193,3 +2193,52 @@ body {
   stroke-dasharray: 12 6 !important;
   animation: reactflow-dash 0.4s linear infinite !important;
 }
+
+/* ── Panel Toggles & Overlays ─────────────────────────── */
+.panel-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+}
+
+.panel-close-btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.canvas-overlays {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  right: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  z-index: 10;
+  pointer-events: none; /* Let clicks pass through empty space */
+}
+
+.canvas-overlays > * {
+  pointer-events: auto; /* Re-enable clicks on actual elements */
+}
+
+.panel-toggle-btn {
+  background: var(--bg-glass);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: var(--shadow-md);
+  color: var(--text-primary);
+}
+
+.canvas-search-form {
+  background: var(--bg-glass);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: var(--shadow-md);
+  margin-left: auto; /* Push to the right if left is empty */
+}
