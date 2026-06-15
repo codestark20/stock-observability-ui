@@ -69,6 +69,45 @@ function AppContent() {
     selectWorkflow(id)
   }, [createWorkflow, saveWorkflow, selectWorkflow])
 
+  const handleCreateStockDemo = useCallback(() => {
+    const id = createWorkflow('Stock Trade Execution')
+
+    // Pre-built components
+    const components = [
+      { id: 'demo_order', name: 'Order Gateway', manager: 'Alex Trading', sla: '99.99%', role: 'start', linkUsage: 'Validates trade order and assigns Trade ID', latency: '5ms', tps: '15k/sec', cpu: '15%' },
+      { id: 'demo_risk', name: 'Risk Engine', manager: 'Sarah Compliance', sla: '99.9%', role: 'intermediate', linkUsage: 'Checks margin requirements for Trade ID', latency: '12ms', tps: '15k/sec', cpu: '40%' },
+      { id: 'demo_match', name: 'Matching Engine', manager: 'Core Engine Team', sla: '99.999%', role: 'intermediate', linkUsage: 'Matches buy/sell orders for Trade ID', latency: '2ms', tps: '50k/sec', cpu: '85%' },
+      { id: 'demo_clear', name: 'Clearing House', manager: 'Finance', sla: '< 500ms', role: 'intermediate', linkUsage: 'Settles funds for Trade ID', latency: '150ms', tps: '10k/sec', cpu: '30%' },
+      { id: 'demo_notify', name: 'Market Data Feed', manager: 'Data Team', sla: '99.5%', role: 'end', linkUsage: 'Broadcasts filled Trade ID to ticker', latency: '8ms', tps: '100k/sec', cpu: '60%' }
+    ]
+
+    const nodes = [
+      { id: 'demo_order', type: 'builderNode', position: { x: 350, y: 0 }, data: { name: 'Order Gateway', manager: 'Alex Trading', sla: '99.99%', role: 'start', linkUsage: 'Validates trade order and assigns Trade ID', componentId: 'demo_order' } },
+      { id: 'demo_risk', type: 'builderNode', position: { x: 50, y: 280 }, data: { name: 'Risk Engine', manager: 'Sarah Compliance', sla: '99.9%', role: 'intermediate', linkUsage: 'Checks margin requirements for Trade ID', componentId: 'demo_risk' } },
+      { id: 'demo_match', type: 'builderNode', position: { x: 350, y: 280 }, data: { name: 'Matching Engine', manager: 'Core Engine Team', sla: '99.999%', role: 'intermediate', linkUsage: 'Matches buy/sell orders for Trade ID', componentId: 'demo_match' } },
+      { id: 'demo_clear', type: 'builderNode', position: { x: 650, y: 280 }, data: { name: 'Clearing House', manager: 'Finance', sla: '< 500ms', role: 'intermediate', linkUsage: 'Settles funds for Trade ID', componentId: 'demo_clear' } },
+      { id: 'demo_notify', type: 'builderNode', position: { x: 350, y: 560 }, data: { name: 'Market Data Feed', manager: 'Data Team', sla: '99.5%', role: 'end', linkUsage: 'Broadcasts filled Trade ID to ticker', componentId: 'demo_notify' } }
+    ]
+
+    const edges = [
+      { id: 'e_order_risk', source: 'demo_order', target: 'demo_risk', sourceHandle: null, targetHandle: null, data: { direction: 'one-way' } },
+      { id: 'e_order_match', source: 'demo_order', target: 'demo_match', sourceHandle: null, targetHandle: null, data: { direction: 'one-way' } },
+      { id: 'e_risk_match', source: 'demo_risk', target: 'demo_match', sourceHandle: null, targetHandle: null, data: { direction: 'one-way' } },
+      { id: 'e_match_clear', source: 'demo_match', target: 'demo_clear', sourceHandle: null, targetHandle: null, data: { direction: 'one-way' } },
+      { id: 'e_match_notify', source: 'demo_match', target: 'demo_notify', sourceHandle: null, targetHandle: null, data: { direction: 'one-way' } }
+    ]
+
+    saveWorkflow(id, {
+      name: 'Stock Trade Execution',
+      commonLink: 'Trade ID',
+      components,
+      nodes,
+      edges
+    })
+
+    selectWorkflow(id)
+  }, [createWorkflow, saveWorkflow, selectWorkflow])
+
   return (
     <div className="app-shell">
       <Sidebar
@@ -92,12 +131,15 @@ function AppContent() {
             <p className="welcome-text">
               Build custom workflows, define component SLAs, and monitor system health in real time.
             </p>
-            <div className="welcome-actions">
+            <div className="welcome-actions" style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
               <button className="btn btn--primary" onClick={handleCreate}>
-                + Create Your First Workflow
+                + Create Blank Workflow
               </button>
-              <button className="btn btn--ghost" style={{ marginLeft: '12px' }} onClick={handleCreateDemo}>
-                🚀 Try Demo Workflow
+              <button className="btn btn--ghost" onClick={handleCreateDemo}>
+                🏢 HR Onboarding Demo
+              </button>
+              <button className="btn btn--ghost" onClick={handleCreateStockDemo}>
+                📈 Stock Exchange Demo
               </button>
             </div>
             <div className="welcome-features">
