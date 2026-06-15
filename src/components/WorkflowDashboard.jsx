@@ -438,6 +438,10 @@ export default function WorkflowDashboard() {
             onPaneClick={() => setSelectedNodeId(null)}
             nodesDraggable={false}
             nodesConnectable={false}
+            panOnDrag={true}
+            zoomOnScroll={true}
+            zoomOnPinch={true}
+            zoomOnDoubleClick={true}
             proOptions={{ hideAttribution: true }}
           >
             <Background color="rgba(148, 163, 184, 0.06)" gap={20} />

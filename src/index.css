@@ -174,12 +174,15 @@ body {
   border-bottom: 1px solid var(--border-subtle);
   z-index: 50;
   flex-shrink: 0;
+  gap: 16px;
 }
 
 .header-brand {
   display: flex;
   align-items: center;
   gap: 14px;
+  flex: 1;
+  min-width: 0;
 }
 
 .header-logo {
@@ -194,6 +197,7 @@ body {
   font-weight: 700;
   color: white;
   box-shadow: var(--shadow-glow-blue);
+  flex-shrink: 0;
 }
 
 .header-title {
@@ -201,6 +205,9 @@ body {
   font-weight: 700;
   color: var(--text-primary);
   letter-spacing: -0.3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .header-subtitle {
@@ -209,18 +216,25 @@ body {
   text-transform: uppercase;
   letter-spacing: 1.5px;
   font-weight: 500;
+  white-space: nowrap;
 }
 
 .header-center {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 20px;
+  flex: 2;
+  min-width: 0;
 }
 
 .header-actions {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 12px;
+  flex: 1;
+  flex-shrink: 0;
 }
 
 /* ── Live Clock ────────────────────────────────────────── */
