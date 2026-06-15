@@ -2006,3 +2006,176 @@ body {
   color: #fbbf24;
   border: 1px solid rgba(245, 158, 11, 0.3);
 }
+
+/* ══════════════════════════════════════════════════════════
+   ENTITY TRACKER (TRACE MODE)
+   ══════════════════════════════════════════════════════════ */
+
+/* ── Trace Search Form ────────────────────────────────── */
+.trace-search-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-full);
+  padding: 4px 4px 4px 16px;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: all var(--transition-fast);
+}
+
+.trace-search-form:focus-within {
+  border-color: var(--accent-blue);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2), 0 0 0 2px rgba(56, 189, 248, 0.2);
+}
+
+.trace-search-input {
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 13px;
+  width: 180px;
+  outline: none;
+}
+
+.trace-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.trace-search-btn {
+  background: var(--accent-blue);
+  color: white;
+  border: none;
+  border-radius: var(--radius-full);
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.trace-search-btn:hover {
+  background: #0ea5e9;
+  transform: translateY(-1px);
+}
+
+/* ── Trace Timeline Panel ─────────────────────────────── */
+.trace-timeline-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  animation: slideInRight 0.3s ease-out;
+}
+
+.trace-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.6);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.trace-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.trace-id {
+  color: var(--accent-blue);
+  font-family: var(--font-mono);
+  background: rgba(56, 189, 248, 0.1);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+}
+
+.trace-logs {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.trace-log-item {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  border-left: 3px solid var(--border-default);
+}
+
+.trace-log-item--healthy { border-left-color: var(--status-healthy); }
+.trace-log-item--warning { border-left-color: var(--status-warning); }
+.trace-log-item--critical { border-left-color: var(--status-critical); }
+
+.trace-log-time {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  margin-bottom: 4px;
+}
+
+.trace-log-node {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.trace-log-msg {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.trace-log-duration {
+  font-size: 11px;
+  color: var(--accent-blue);
+  font-family: var(--font-mono);
+  margin-top: 6px;
+  align-self: flex-end;
+}
+
+/* ── Trace Mode Visuals (Nodes & Edges) ───────────────── */
+.service-node--dimmed {
+  opacity: 0.3 !important;
+  filter: grayscale(80%) !important;
+  transition: all 0.5s ease-out;
+}
+
+.service-node--in-trace {
+  transform: scale(1.05);
+  z-index: 100;
+  box-shadow: 0 0 0 2px var(--accent-blue), 0 0 30px rgba(56, 189, 248, 0.3) !important;
+  border-color: var(--accent-blue) !important;
+  transition: all 0.3s ease-out;
+  animation: pulse-border 2s infinite;
+}
+
+@keyframes pulse-border {
+  0% { box-shadow: 0 0 0 2px var(--accent-blue), 0 0 20px rgba(56, 189, 248, 0.2); }
+  50% { box-shadow: 0 0 0 3px #00f0ff, 0 0 40px rgba(0, 240, 255, 0.5); }
+  100% { box-shadow: 0 0 0 2px var(--accent-blue), 0 0 20px rgba(56, 189, 248, 0.2); }
+}
+
+.edge-in-trace .react-flow__edge-path {
+  stroke: #00f0ff !important;
+  stroke-width: 6 !important;
+  filter: drop-shadow(0 0 10px rgba(0, 240, 255, 0.8)) !important;
+}
+
+.edge-in-trace.animated path {
+  stroke-dasharray: 12 6 !important;
+  animation: reactflow-dash 0.4s linear infinite !important;
+}

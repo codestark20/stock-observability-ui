@@ -42,7 +42,9 @@ export default function DashboardNode({ data }) {
     'service-node',
     `service-node--${status}`,
     data.selected ? 'service-node--selected' : '',
-    role !== 'intermediate' ? `service-node--${role}` : ''
+    role !== 'intermediate' ? `service-node--${role}` : '',
+    data.isTraceMode && !data.inTracePath ? 'service-node--dimmed' : '',
+    data.inTracePath ? 'service-node--in-trace' : ''
   ].filter(Boolean).join(' ')
 
   return (

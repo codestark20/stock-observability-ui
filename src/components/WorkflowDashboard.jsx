@@ -11,6 +11,7 @@ import DashboardNode from './DashboardNode'
 import NodeDetailPanel from './NodeDetailPanel'
 import SystemHealthPanel from './SystemHealthPanel'
 import IncidentTimeline from './IncidentTimeline'
+import TraceTimelinePanel from './TraceTimelinePanel'
 import { useWorkflow } from '../context/WorkflowContext'
 
 const nodeTypes = { dashboardNode: DashboardNode }
@@ -50,6 +51,12 @@ export default function WorkflowDashboard() {
   const [alertDismissed, setAlertDismissed] = useState(false)
   const [currentTime, setCurrentTime] = useState(new Date())
 
+  // Trace Mode State
+  const [traceIdSearch, setTraceIdSearch] = useState('')
+  const [activeTraceId, setActiveTraceId] = useState(null)
+  const [tracePath, setTracePath] = useState([])
+  const [traceLogs, setTraceLogs] = useState([])
+
   // Initialize runtime state from workflow
   useEffect(() => {
     if (!workflow) return
@@ -63,6 +70,9 @@ export default function WorkflowDashboard() {
     setSelectedNodeId(null)
     setIncidentEvents([])
     setAlertDismissed(false)
+    setActiveTraceId(null)
+    setTracePath([])
+    setTraceLogs([])
   }, [workflow?.id, workflow?.updatedAt])
 
   // Live clock
@@ -90,6 +100,54 @@ export default function WorkflowDashboard() {
     setIncidentEvents(prev => [createEvent(message, severity), ...prev].slice(0, 50))
   }, [])
 
+  const simulateTrace = useCallback((e) => {
+    e.preventDefault()
+    if (!traceIdSearch.trim() || !workflow) return
+    const id = traceIdSearch.trim()
+    setActiveTraceId(id)
+    setTraceIdSearch('')
+    
+    const nodes = workflow.nodes || []
+    const edges = workflow.edges || []
+    if (nodes.length === 0) return
+    
+    // Find start node
+    const startNodes = nodes.filter(n => n.data?.role === 'start')
+    const startNode = startNodes.length > 0 ? startNodes[0] : nodes[0]
+    
+    const path = [startNode.id]
+    const logs = []
+    let currentNodeId = startNode.id
+    let timeOffset = 0
+    
+    const generateLog = (nodeId) => {
+      const comp = runtimeComponents.find(c => c.id === nodeId)
+      const now = new Date()
+      now.setSeconds(now.getSeconds() - (15 - timeOffset))
+      logs.push({
+        nodeName: comp?.name || 'Unknown',
+        time: formatTime(now),
+        message: comp?.status === 'healthy' ? 'Processed successfully' : 'Processing degraded',
+        status: comp?.status || 'healthy',
+        duration: Math.floor(Math.random() * 80) + 20
+      })
+      timeOffset += 3
+    }
+    
+    // Generate a path of up to 4 nodes
+    for(let i = 0; i < 4; i++) {
+      const outEdges = edges.filter(edge => edge.source === currentNodeId)
+      if (outEdges.length === 0) break
+      const randomEdge = outEdges[Math.floor(Math.random() * outEdges.length)]
+      currentNodeId = randomEdge.target
+      path.push(currentNodeId)
+    }
+    
+    setTracePath(path)
+    path.forEach(nodeId => generateLog(nodeId))
+    setTraceLogs(logs)
+  }, [traceIdSearch, workflow, runtimeComponents])
+
   // Build ReactFlow nodes from runtime state
   const flowNodes = useMemo(() => {
     if (!workflow) return []
@@ -109,11 +167,13 @@ export default function WorkflowDashboard() {
           latency: comp.latency,
           tps: comp.tps,
           cpu: comp.cpu,
-          selected: n.id === selectedNodeId
+          selected: n.id === selectedNodeId,
+          isTraceMode: !!activeTraceId,
+          inTracePath: activeTraceId ? tracePath.includes(n.id) : false
         }
       }
     }).filter(Boolean)
-  }, [workflow, runtimeComponents, selectedNodeId])
+  }, [workflow, runtimeComponents, selectedNodeId, activeTraceId, tracePath])
 
   // Build edges with styling
   const flowEdges = useMemo(() => {
@@ -127,15 +187,19 @@ export default function WorkflowDashboard() {
 
       const direction = e.data?.direction || 'one-way'
       const commonLink = workflow.commonLink || ''
+      const inTracePath = activeTraceId ? tracePath.includes(e.source) && tracePath.includes(e.target) : false
+      const opacity = activeTraceId && !inTracePath ? 0.2 : 1
+
       const edgeConfig = {
         ...e,
         animated: true,
         type: 'smoothstep',
-        style: { strokeWidth: 5, stroke: color },
+        className: activeTraceId && inTracePath ? 'edge-in-trace' : '',
+        style: { strokeWidth: 5, stroke: color, opacity },
         markerEnd: { type: MarkerType.ArrowClosed, color, width: 28, height: 28, strokeWidth: 1 },
         label: commonLink || undefined,
-        labelStyle: commonLink ? { fill: '#e2e8f0', fontSize: 11, fontWeight: 600, fontFamily: 'Inter, sans-serif' } : undefined,
-        labelBgStyle: commonLink ? { fill: '#1e293b', fillOpacity: 0.95 } : undefined,
+        labelStyle: commonLink ? { fill: '#e2e8f0', fontSize: 11, fontWeight: 600, fontFamily: 'Inter, sans-serif', opacity } : undefined,
+        labelBgStyle: commonLink ? { fill: '#1e293b', fillOpacity: 0.95 * opacity } : undefined,
         labelBgPadding: commonLink ? [8, 4] : undefined,
         labelBgBorderRadius: 6
       }
@@ -144,7 +208,7 @@ export default function WorkflowDashboard() {
       }
       return edgeConfig
     })
-  }, [workflow, runtimeComponents])
+  }, [workflow, runtimeComponents, activeTraceId, tracePath])
 
   // Health panel nodes format
   const healthNodes = useMemo(() =>
@@ -234,6 +298,9 @@ export default function WorkflowDashboard() {
     setSelectedNodeId(null)
     setAlertDismissed(false)
     setIncidentEvents([])
+    setActiveTraceId(null)
+    setTracePath([])
+    setTraceLogs([])
     addEvent('System reset — all services restored to baseline', 'healthy')
   }, [workflow, addEvent])
 
@@ -287,7 +354,7 @@ export default function WorkflowDashboard() {
           )}
         </div>
 
-        <div className="header-center">
+        <div className="header-center" style={{ flex: 2, display: 'flex', justifyContent: 'center', gap: '20px' }}>
           <div className="live-clock">
             <span className="live-clock-dot" />
             {formatTime(currentTime)}
@@ -300,6 +367,15 @@ export default function WorkflowDashboard() {
               </div>
             </div>
           </div>
+          <form className="trace-search-form" onSubmit={simulateTrace}>
+            <input 
+              className="trace-search-input" 
+              placeholder="Track Entity (e.g. ORD-123)" 
+              value={traceIdSearch}
+              onChange={e => setTraceIdSearch(e.target.value)}
+            />
+            <button type="submit" className="trace-search-btn">🔍 Track</button>
+          </form>
         </div>
 
         <div className="header-actions">
@@ -330,15 +406,25 @@ export default function WorkflowDashboard() {
       <div className="main-content">
         {/* Left Panel */}
         <div className="panel panel--left">
-          <div className="panel-header">
-            <span className="panel-title">System Health</span>
-          </div>
-          <div className="panel-body">
-            <SystemHealthPanel nodes={healthNodes} onNodeSelect={setSelectedNodeId} />
-            <div className="divider" />
-            <div className="section-label">Incident Log</div>
-            <IncidentTimeline events={incidentEvents} />
-          </div>
+          {activeTraceId ? (
+            <TraceTimelinePanel 
+              traceId={activeTraceId} 
+              logs={traceLogs} 
+              onClose={() => setActiveTraceId(null)} 
+            />
+          ) : (
+            <>
+              <div className="panel-header">
+                <span className="panel-title">System Health</span>
+              </div>
+              <div className="panel-body">
+                <SystemHealthPanel nodes={healthNodes} onNodeSelect={setSelectedNodeId} />
+                <div className="divider" />
+                <div className="section-label">Incident Log</div>
+                <IncidentTimeline events={incidentEvents} />
+              </div>
+            </>
+          )}
         </div>
 
         {/* Center Graph */}
