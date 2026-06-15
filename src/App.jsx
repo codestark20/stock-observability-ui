@@ -135,12 +135,6 @@ function AppContent() {
               <button className="btn btn--primary" onClick={handleCreate}>
                 + Create Blank Workflow
               </button>
-              <button className="btn btn--ghost" onClick={handleCreateDemo}>
-                🏢 HR Onboarding Demo
-              </button>
-              <button className="btn btn--ghost" onClick={handleCreateStockDemo}>
-                📈 Stock Exchange Demo
-              </button>
             </div>
             <div className="welcome-features">
               <div className="welcome-feature">
