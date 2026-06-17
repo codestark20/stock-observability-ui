@@ -98,7 +98,7 @@ export default function AnalyticsDashboard({ workflow, onClose }) {
                         <span style={{ color: 'var(--text-muted)' }}>{count} ({percentage.toFixed(1)}%)</span>
                       </div>
                       <div style={{ width: '100%', height: '8px', background: 'rgba(15, 23, 42, 0.5)', borderRadius: '4px', overflow: 'hidden' }}>
-                        <div style={{ width: \`\${percentage}%\`, height: '100%', background: '#38bdf8', borderRadius: '4px' }} />
+                        <div style={{ width: `${percentage}%`, height: '100%', background: '#38bdf8', borderRadius: '4px' }} />
                       </div>
                     </div>
                   )
@@ -122,7 +122,7 @@ export default function AnalyticsDashboard({ workflow, onClose }) {
                         <span style={{ color: 'var(--text-muted)' }}>{count}</span>
                       </div>
                       <div style={{ width: '100%', height: '8px', background: 'rgba(15, 23, 42, 0.5)', borderRadius: '4px', overflow: 'hidden' }}>
-                        <div style={{ width: \`\${percentage}%\`, height: '100%', background: color, borderRadius: '4px' }} />
+                        <div style={{ width: `${percentage}%`, height: '100%', background: color, borderRadius: '4px' }} />
                       </div>
                     </div>
                   )
