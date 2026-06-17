@@ -555,10 +555,7 @@ export default function WorkflowDashboard() {
         </div>
 
         <div className="header-center">
-          <div className="live-clock">
-            <span className="live-clock-dot" />
-            {formatTime(currentTime)}
-          </div>
+
           <div className={`tx-rate-card ${isCritical ? 'tx-rate-card--critical' : 'tx-rate-card--ok'}`}>
             <div>
               <div className="tx-rate-label">Txn Success Rate</div>
