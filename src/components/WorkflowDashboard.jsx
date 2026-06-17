@@ -567,9 +567,7 @@ export default function WorkflowDashboard() {
         </div>
 
         <div className="header-actions" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <button className="btn btn--ghost btn--sm" onClick={() => setActiveView('analytics')}>
-            📊 Analytics
-          </button>
+
           <button className="btn btn--danger btn--sm" onClick={simulateIncident}>
             🔴 Simulate Incident
           </button>
