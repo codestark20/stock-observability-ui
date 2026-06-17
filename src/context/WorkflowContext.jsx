@@ -1,4 +1,11 @@
-import { createContext, useContext, useState, useCallback, useEffect } from 'react'
+import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react'
+import {
+  fetchWorkflows,
+  createWorkflowAPI,
+  updateWorkflowAPI,
+  deleteWorkflowAPI,
+  duplicateWorkflowAPI
+} from '../lib/api'
 
 const WorkflowContext = createContext(null)
 
@@ -8,6 +15,7 @@ function generateId(prefix = 'wf') {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
 }
 
+// ── localStorage fallback helpers ────────────────────────
 function loadFromStorage() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
@@ -43,17 +51,49 @@ function generateMetrics(name, sla) {
 }
 
 export function WorkflowProvider({ children }) {
-  const [workflows, setWorkflows] = useState(() => loadFromStorage())
+  const [workflows, setWorkflows] = useState([])
   const [activeWorkflowId, setActiveWorkflowId] = useState(null)
   const [activeView, setActiveView] = useState('welcome') // 'welcome' | 'builder' | 'dashboard'
   const [editingWorkflowId, setEditingWorkflowId] = useState(null)
+  const [isOnline, setIsOnline] = useState(true) // API connectivity
+  const [isLoading, setIsLoading] = useState(true)
+  const initialLoadDone = useRef(false)
 
-  // Persist to localStorage on every change
+  // ── Load workflows from API on mount, fallback to localStorage ──
   useEffect(() => {
-    saveToStorage(workflows)
-  }, [workflows])
+    if (initialLoadDone.current) return
+    initialLoadDone.current = true
 
-  const createWorkflow = useCallback((name) => {
+    async function loadWorkflows() {
+      setIsLoading(true)
+      try {
+        const data = await fetchWorkflows()
+        setWorkflows(data)
+        setIsOnline(true)
+        // Sync to localStorage as cache
+        saveToStorage(data)
+      } catch (err) {
+        console.warn('API unavailable, using localStorage fallback:', err.message)
+        setIsOnline(false)
+        setWorkflows(loadFromStorage())
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadWorkflows()
+  }, [])
+
+  // ── Persist to localStorage on every change (cache) ──
+  useEffect(() => {
+    if (workflows.length > 0 || !isLoading) {
+      saveToStorage(workflows)
+    }
+  }, [workflows, isLoading])
+
+  // ── CRUD Operations (API-first, localStorage fallback) ──
+
+  const createWorkflow = useCallback(async (name) => {
     const id = generateId('wf')
     const newWorkflow = {
       id,
@@ -65,23 +105,40 @@ export function WorkflowProvider({ children }) {
       nodes: [],
       edges: []
     }
+
+    // Optimistic update
     setWorkflows(prev => [...prev, newWorkflow])
     setEditingWorkflowId(id)
     setActiveWorkflowId(id)
     setActiveView('builder')
+
+    // Persist to API
+    try {
+      await createWorkflowAPI(newWorkflow)
+    } catch (err) {
+      console.warn('API save failed, data cached locally:', err.message)
+    }
+
     return id
   }, [])
 
-  const deleteWorkflow = useCallback((id) => {
+  const deleteWorkflow = useCallback(async (id) => {
     setWorkflows(prev => prev.filter(w => w.id !== id))
     if (activeWorkflowId === id) {
       setActiveWorkflowId(null)
       setActiveView('welcome')
       setEditingWorkflowId(null)
     }
+
+    try {
+      await deleteWorkflowAPI(id)
+    } catch (err) {
+      console.warn('API delete failed:', err.message)
+    }
   }, [activeWorkflowId])
 
-  const duplicateWorkflow = useCallback((id) => {
+  const duplicateWorkflow = useCallback(async (id) => {
+    // Optimistic: duplicate locally
     setWorkflows(prev => {
       const source = prev.find(w => w.id === id)
       if (!source) return prev
@@ -95,9 +152,18 @@ export function WorkflowProvider({ children }) {
       }
       return [...prev, clone]
     })
+
+    try {
+      const result = await duplicateWorkflowAPI(id)
+      // Re-fetch to sync IDs
+      const data = await fetchWorkflows()
+      setWorkflows(data)
+    } catch (err) {
+      console.warn('API duplicate failed:', err.message)
+    }
   }, [])
 
-  const renameWorkflow = useCallback((id, name) => {
+  const renameWorkflow = useCallback(async (id, name) => {
     setWorkflows(prev =>
       prev.map(w =>
         w.id === id
@@ -105,6 +171,12 @@ export function WorkflowProvider({ children }) {
           : w
       )
     )
+
+    try {
+      await updateWorkflowAPI(id, { name })
+    } catch (err) {
+      console.warn('API rename failed:', err.message)
+    }
   }, [])
 
   const selectWorkflow = useCallback((id) => {
@@ -123,7 +195,17 @@ export function WorkflowProvider({ children }) {
     }
   }, [createWorkflow])
 
-  const saveWorkflow = useCallback((id, { name, commonLink, components, nodes, edges }) => {
+  const saveWorkflow = useCallback(async (id, { name, commonLink, components, nodes, edges }) => {
+    const updatedData = {
+      name,
+      commonLink: commonLink !== undefined ? commonLink : undefined,
+      components,
+      nodes,
+      edges,
+      updatedAt: new Date().toISOString()
+    }
+
+    // Optimistic update
     setWorkflows(prev =>
       prev.map(w =>
         w.id === id
@@ -134,11 +216,18 @@ export function WorkflowProvider({ children }) {
               components: components || w.components,
               nodes: nodes || w.nodes,
               edges: edges || w.edges,
-              updatedAt: new Date().toISOString()
+              updatedAt: updatedData.updatedAt
             }
           : w
       )
     )
+
+    // Persist to API
+    try {
+      await updateWorkflowAPI(id, updatedData)
+    } catch (err) {
+      console.warn('API save failed, data cached locally:', err.message)
+    }
   }, [])
 
   const addComponent = useCallback((workflowId, { name, manager, sla }) => {
@@ -231,6 +320,8 @@ export function WorkflowProvider({ children }) {
     activeWorkflowId,
     activeView,
     editingWorkflowId,
+    isOnline,
+    isLoading,
     createWorkflow,
     deleteWorkflow,
     duplicateWorkflow,

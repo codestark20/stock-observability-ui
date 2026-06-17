@@ -212,11 +212,22 @@ export default function NodeDetailPanel({
               When your service completes a task, send a webhook containing the specific entity ID (e.g., Order ID) to track it live on this dashboard.
             </p>
             
-            <div className="section-label">cURL Example</div>
-            <div className="glass-card glass-card--compact" style={{ background: '#020617', border: '1px solid var(--border-subtle)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="section-label" style={{ marginBottom: 0 }}>cURL Example</div>
+              <button 
+                className="btn btn--ghost btn--sm"
+                style={{ fontSize: '10px', padding: '2px 8px' }}
+                onClick={() => {
+                  const snippet = `curl -X POST ${window.location.origin}/api/v1/events \\\n  -H "Content-Type: application/json" \\\n  -d '{\n    "component_id": "${data.label.toLowerCase().replace(/\s+/g, '_')}",\n    "entity_id": "ORD-12345",\n    "status": "healthy",\n    "duration_ms": 145,\n    "message": "Processed successfully"\n  }'`
+                  navigator.clipboard.writeText(snippet)
+                    .then(() => alert('Copied to clipboard!'))
+                    .catch(() => alert('Copy failed — please select and copy manually'))
+                }}
+              >📋 Copy</button>
+            </div>
+            <div className="glass-card glass-card--compact" style={{ background: '#020617', border: '1px solid var(--border-subtle)', marginTop: '8px' }}>
               <pre style={{ margin: 0, fontSize: '11px', fontFamily: 'var(--font-mono)', color: '#e2e8f0', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
-{`curl -X POST https://api.stock-observability.com/v1/events \\
-  -H "Authorization: Bearer YOUR_API_KEY" \\
+{`curl -X POST ${window.location.origin}/api/v1/events \\
   -H "Content-Type: application/json" \\
   -d '{
     "component_id": "${data.label.toLowerCase().replace(/\s+/g, '_')}",
@@ -227,9 +238,12 @@ export default function NodeDetailPanel({
   }'`}
               </pre>
             </div>
-            <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '12px' }}>
-              SDKs for Node.js, Python, and Go are also available in our documentation.
-            </p>
+            <div style={{ marginTop: '16px', padding: '10px', background: 'rgba(34, 197, 94, 0.08)', border: '1px solid rgba(34, 197, 94, 0.2)', borderRadius: 'var(--radius-sm)' }}>
+              <div style={{ fontSize: '11px', color: '#4ade80', fontWeight: 600, marginBottom: '4px' }}>✅ This is a REAL endpoint</div>
+              <div style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                Run this cURL command from any terminal and the event will appear on your dashboard in real-time via Supabase Realtime.
+              </div>
+            </div>
           </div>
         )}
       </div>

@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useCallback } from 'react'
+import { useMemo, useState, useEffect, useCallback, useRef } from 'react'
 import ReactFlow, {
   Background,
   Controls,
@@ -13,6 +13,8 @@ import SystemHealthPanel from './SystemHealthPanel'
 import IncidentTimeline from './IncidentTimeline'
 import TraceTimelinePanel from './TraceTimelinePanel'
 import { useWorkflow } from '../context/WorkflowContext'
+import { supabase, isSupabaseEnabled } from '../lib/supabase'
+import { fetchEntityTrace } from '../lib/api'
 
 const nodeTypes = { dashboardNode: DashboardNode }
 
@@ -60,6 +62,9 @@ export default function WorkflowDashboard() {
   // Layout State
   const [isPanelOpen, setIsPanelOpen] = useState(true)
 
+  // Realtime subscription ref
+  const realtimeChannel = useRef(null)
+
   // Initialize runtime state from workflow
   useEffect(() => {
     if (!workflow) return
@@ -77,6 +82,86 @@ export default function WorkflowDashboard() {
     setTracePath([])
     setTraceLogs([])
   }, [workflow?.id, workflow?.updatedAt])
+
+  // ── Supabase Realtime Subscription ──────────────────────
+  useEffect(() => {
+    if (!isSupabaseEnabled || !activeWorkflowId) return
+
+    // Subscribe to new events for this workflow
+    const channel = supabase
+      .channel(`events-${activeWorkflowId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'events',
+          filter: `workflow_id=eq.${activeWorkflowId}`
+        },
+        (payload) => {
+          const event = payload.new
+          handleRealEvent(event)
+        }
+      )
+      .subscribe()
+
+    realtimeChannel.current = channel
+
+    return () => {
+      if (realtimeChannel.current) {
+        supabase.removeChannel(realtimeChannel.current)
+        realtimeChannel.current = null
+      }
+    }
+  }, [activeWorkflowId])
+
+  // Handle incoming real events from Supabase Realtime
+  const handleRealEvent = useCallback((event) => {
+    // Update component status based on the real event
+    setRuntimeComponents(prev => prev.map(c => {
+      if (c.id !== event.component_id) return c
+      return {
+        ...c,
+        status: event.status || c.status,
+        latency: event.duration_ms ? `${event.duration_ms}ms` : c.latency
+      }
+    }))
+
+    // Add to incident log
+    const severity = event.status === 'critical' ? 'critical'
+      : event.status === 'warning' ? 'warning'
+      : event.status === 'failed' ? 'critical'
+      : 'healthy'
+
+    const comp = runtimeComponents.find(c => c.id === event.component_id)
+    const compName = comp?.name || event.component_id
+
+    setIncidentEvents(prev => [
+      createEvent(
+        `<strong>${compName}</strong> — ${event.message || event.status} (${event.entity_id})`,
+        severity
+      ),
+      ...prev
+    ].slice(0, 50))
+
+    // If in trace mode and this event matches the traced entity, update trace
+    if (activeTraceId && event.entity_id === activeTraceId) {
+      setTraceLogs(prev => [...prev, {
+        nodeName: compName,
+        time: formatTime(new Date(event.created_at)),
+        message: event.message || 'Processed',
+        status: event.status || 'healthy',
+        duration: event.duration_ms || 0,
+        action: event.action || '',
+        method: event.method || 'POST',
+        statusCode: event.status_code || 200,
+        metadata: event.metadata || {}
+      }])
+
+      // Add to trace path
+      setTracePath(prev => prev.includes(event.component_id) ? prev : [...prev, event.component_id])
+    }
+  }, [runtimeComponents, activeTraceId])
 
   // Live clock
   useEffect(() => {
@@ -103,39 +188,74 @@ export default function WorkflowDashboard() {
     setIncidentEvents(prev => [createEvent(message, severity), ...prev].slice(0, 50))
   }, [])
 
-  const simulateTrace = useCallback((e) => {
+  // ── Trace: Try real API first, fallback to simulation ──
+  const performTrace = useCallback(async (e) => {
     e.preventDefault()
     if (!traceIdSearch.trim() || !workflow) return
     const id = traceIdSearch.trim()
     setActiveTraceId(id)
     setTraceIdSearch('')
-    
+
+    // Try fetching real trace data from the API
+    try {
+      const events = await fetchEntityTrace(activeWorkflowId, id)
+      if (events && events.length > 0) {
+        // Real data exists! Use it.
+        const path = []
+        const logs = events.map(event => {
+          if (!path.includes(event.component_id)) path.push(event.component_id)
+          const comp = runtimeComponents.find(c => c.id === event.component_id)
+          return {
+            nodeName: comp?.name || event.component_id,
+            time: formatTime(new Date(event.created_at)),
+            message: event.message || 'Processed',
+            status: event.status || 'healthy',
+            duration: event.duration_ms || 0,
+            action: event.action || '',
+            method: event.method || 'POST',
+            statusCode: event.status_code || 200,
+            metadata: event.metadata || {}
+          }
+        })
+        setTracePath(path)
+        setTraceLogs(logs)
+        return
+      }
+    } catch (err) {
+      console.warn('Real trace unavailable, using simulation:', err.message)
+    }
+
+    // Fallback: simulate trace (demo mode)
+    simulateTraceFallback(id)
+  }, [traceIdSearch, workflow, activeWorkflowId, runtimeComponents])
+
+  // Simulation fallback for demo purposes
+  const simulateTraceFallback = useCallback((id) => {
     const nodes = workflow.nodes || []
     const edges = workflow.edges || []
     if (nodes.length === 0) return
-    
-    // Find start node
+
     const startNodes = nodes.filter(n => n.data?.role === 'start')
     const startNode = startNodes.length > 0 ? startNodes[0] : nodes[0]
-    
+
     const path = [startNode.id]
     const logs = []
     let currentNodeId = startNode.id
     let timeOffset = 0
-    
+
     const generateLog = (nodeId) => {
       const comp = runtimeComponents.find(c => c.id === nodeId)
       const now = new Date()
       now.setSeconds(now.getSeconds() - (15 - timeOffset))
-      
-      const isCritical = comp?.status === 'critical'
+
+      const isNodeCritical = comp?.status === 'critical'
       const isWarning = comp?.status === 'warning'
-      
+
       let statusCode = 200
       let method = 'POST'
       let message = 'Processed successfully'
-      
-      if (isCritical) {
+
+      if (isNodeCritical) {
         statusCode = 503
         message = 'Service Unavailable - Connection Timeout'
       } else if (isWarning) {
@@ -149,10 +269,10 @@ export default function WorkflowDashboard() {
       method = methods[Math.floor(Math.random() * methods.length)]
 
       const metadata = {
-        region: ['us-east-1', 'eu-central-1', 'ap-south-1'][Math.floor(Math.random()*3)],
-        host: `ip-10-0-${Math.floor(Math.random()*255)}-${Math.floor(Math.random()*255)}`,
+        region: ['us-east-1', 'eu-central-1', 'ap-south-1'][Math.floor(Math.random() * 3)],
+        host: `ip-10-0-${Math.floor(Math.random() * 255)}-${Math.floor(Math.random() * 255)}`,
       }
-      if (isCritical) metadata.error_code = 'ERR_TIMEOUT'
+      if (isNodeCritical) metadata.error_code = 'ERR_TIMEOUT'
       if (isWarning) metadata.retry_count = Math.floor(Math.random() * 3) + 1
 
       logs.push({
@@ -160,7 +280,7 @@ export default function WorkflowDashboard() {
         time: formatTime(now),
         message,
         status: comp?.status || 'healthy',
-        duration: isCritical ? 5000 : isWarning ? Math.floor(Math.random() * 800) + 200 : Math.floor(Math.random() * 80) + 20,
+        duration: isNodeCritical ? 5000 : isWarning ? Math.floor(Math.random() * 800) + 200 : Math.floor(Math.random() * 80) + 20,
         action,
         method,
         statusCode,
@@ -168,20 +288,19 @@ export default function WorkflowDashboard() {
       })
       timeOffset += 3
     }
-    
-    // Generate a path of up to 4 nodes
-    for(let i = 0; i < 4; i++) {
+
+    for (let i = 0; i < 4; i++) {
       const outEdges = edges.filter(edge => edge.source === currentNodeId)
       if (outEdges.length === 0) break
       const randomEdge = outEdges[Math.floor(Math.random() * outEdges.length)]
       currentNodeId = randomEdge.target
       path.push(currentNodeId)
     }
-    
+
     setTracePath(path)
     path.forEach(nodeId => generateLog(nodeId))
     setTraceLogs(logs)
-  }, [traceIdSearch, workflow, runtimeComponents])
+  }, [workflow, runtimeComponents])
 
   // Build ReactFlow nodes from runtime state
   const flowNodes = useMemo(() => {
@@ -380,7 +499,10 @@ export default function WorkflowDashboard() {
         <div className="header-brand">
           <div>
             <div className="header-title">{workflow.name}</div>
-            <div className="header-subtitle">Live Monitoring</div>
+            <div className="header-subtitle">
+              Live Monitoring
+              {isSupabaseEnabled && <span className="realtime-badge" title="Connected to Supabase Realtime"> 🟢 Live</span>}
+            </div>
           </div>
           {workflow.commonLink && (
             <div className="common-link-badge">
@@ -467,8 +589,8 @@ export default function WorkflowDashboard() {
             )}
             
             <form className="trace-search-form canvas-search-form" onSubmit={e => {
-               simulateTrace(e)
-               if (!isPanelOpen && traceIdSearch.trim()) setIsPanelOpen(true) // auto open panel when tracking
+               performTrace(e)
+               if (!isPanelOpen && traceIdSearch.trim()) setIsPanelOpen(true)
             }}>
               <input 
                 className="trace-search-input" 

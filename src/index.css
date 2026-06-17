@@ -2314,3 +2314,10 @@ body {
 .meta-val {
   color: var(--text-secondary);
 }
+
+/* ── Realtime Badge ───────────────────────────────────── */
+.realtime-badge {
+  font-size: 10px;
+  margin-left: 6px;
+  animation: pulse-dot 2s ease-in-out infinite;
+}
