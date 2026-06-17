@@ -3,6 +3,7 @@ import { WorkflowProvider, useWorkflow } from './context/WorkflowContext'
 import Sidebar from './components/Sidebar'
 import WorkflowBuilder from './components/WorkflowBuilder'
 import WorkflowDashboard from './components/WorkflowDashboard'
+import AnalyticsDashboard from './components/AnalyticsDashboard'
 
 function AppContent() {
   const {
@@ -124,6 +125,7 @@ function AppContent() {
       <main className="app-main">
         {activeView === 'builder' && <WorkflowBuilder />}
         {activeView === 'dashboard' && <WorkflowDashboard />}
+        {activeView === 'analytics' && <AnalyticsDashboard workflow={workflows.find(w => w.id === activeWorkflowId)} onClose={() => setActiveView('dashboard')} />}
         {activeView === 'welcome' && (
           <div className="welcome-page">
             <div className="welcome-icon">⚡</div>

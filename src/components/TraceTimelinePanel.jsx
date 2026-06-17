@@ -1,29 +1,90 @@
-import { useState, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 
 export default function TraceTimelinePanel({ traceId, logs, onClose }) {
+  const [filterStatus, setFilterStatus] = useState('all')
+  const [searchQuery, setSearchQuery] = useState('')
+
+  const filteredLogs = useMemo(() => {
+    return logs.filter(log => {
+      // Status filter
+      if (filterStatus === 'errors' && log.status !== 'critical' && log.status !== 'failed' && (!log.statusCode || log.statusCode < 500)) return false
+      if (filterStatus === 'warnings' && log.status !== 'warning' && (!log.statusCode || (log.statusCode < 400 || log.statusCode >= 500))) return false
+      
+      // Search filter
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase()
+        const matchNode = log.nodeName?.toLowerCase().includes(query)
+        const matchMsg = log.message?.toLowerCase().includes(query)
+        const matchAction = log.action?.toLowerCase().includes(query)
+        const matchMeta = log.metadata ? Object.values(log.metadata).some(v => String(v).toLowerCase().includes(query)) : false
+        if (!matchNode && !matchMsg && !matchAction && !matchMeta) return false
+      }
+      
+      return true
+    })
+  }, [logs, filterStatus, searchQuery])
+
   return (
     <div className="trace-timeline-panel">
-      <div className="trace-header">
-        <div className="trace-title">
-          <span className="trace-icon">🔍</span>
-          Entity Trace: <span className="trace-id">{traceId}</span>
+      <div className="trace-header" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '12px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="trace-title">
+            <span className="trace-icon">🔍</span>
+            Entity Trace: <span className="trace-id">{traceId}</span>
+          </div>
+          <button className="close-btn" onClick={onClose}>✕</button>
         </div>
-        <button className="close-btn" onClick={onClose}>✕</button>
+        
+        {/* Advanced Filters */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button 
+              className={`btn btn--sm ${filterStatus === 'all' ? 'btn--primary' : 'btn--ghost'}`}
+              style={{ flex: 1, fontSize: '10px' }}
+              onClick={() => setFilterStatus('all')}
+            >All</button>
+            <button 
+              className={`btn btn--sm ${filterStatus === 'warnings' ? 'btn--primary' : 'btn--ghost'}`}
+              style={{ flex: 1, fontSize: '10px', color: filterStatus === 'warnings' ? '#0f172a' : '#fbbf24' }}
+              onClick={() => setFilterStatus('warnings')}
+            >Warnings</button>
+            <button 
+              className={`btn btn--sm ${filterStatus === 'errors' ? 'btn--primary' : 'btn--ghost'}`}
+              style={{ flex: 1, fontSize: '10px', color: filterStatus === 'errors' ? '#fff' : '#ef4444' }}
+              onClick={() => setFilterStatus('errors')}
+            >Errors</button>
+          </div>
+          <input 
+            type="text" 
+            placeholder="Search logs, metadata, actions..." 
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            style={{ 
+              width: '100%', 
+              padding: '6px 10px', 
+              fontSize: '11px', 
+              background: 'rgba(15, 23, 42, 0.5)', 
+              border: '1px solid var(--border-subtle)', 
+              borderRadius: '4px',
+              color: 'var(--text-primary)'
+            }}
+          />
+        </div>
       </div>
 
       <div className="trace-logs">
-        {logs.length === 0 && (
-          <div className="empty-state">
-            <div className="empty-state-icon">⏳</div>
-            <div className="empty-state-text">Waiting for trace data...</div>
+        {filteredLogs.length === 0 && (
+          <div className="empty-state" style={{ marginTop: '20px' }}>
+            <div className="empty-state-icon">{logs.length === 0 ? '⏳' : '🚫'}</div>
+            <div className="empty-state-text">{logs.length === 0 ? 'Waiting for trace data...' : 'No logs match your filters.'}</div>
           </div>
         )}
         
-        {logs.map((log, i) => (
+        {filteredLogs.map((log, i) => (
           <div key={i} className={`trace-log-item trace-log-item--${log.status}`}>
             <div className="trace-log-header">
                <div className="trace-log-time">{log.time}</div>
-               {log.duration && <div className="trace-log-duration">{log.duration}ms</div>}
+               {log.duration !== undefined && <div className="trace-log-duration">{log.duration}ms</div>}
             </div>
             
             <div className="trace-log-content">
@@ -41,11 +102,11 @@ export default function TraceTimelinePanel({ traceId, logs, onClose }) {
               )}
               <div className="trace-log-msg">{log.message}</div>
               
-              {log.metadata && (
+              {log.metadata && Object.keys(log.metadata).length > 0 && (
                 <div className="trace-log-metadata">
                   {Object.entries(log.metadata).map(([k, v]) => (
                     <div key={k} className="meta-tag">
-                      <span className="meta-key">{k}:</span> <span className="meta-val">{v}</span>
+                      <span className="meta-key">{k}:</span> <span className="meta-val">{String(v)}</span>
                     </div>
                   ))}
                 </div>

@@ -95,6 +95,22 @@ export default async function handler(req, res) {
 
       if (insertError) throw insertError
 
+      if (status === 'critical' || status === 'failed') {
+        const { error: alertError } = await supabase
+          .from('alerts')
+          .insert({
+            workflow_id: workflowId,
+            component_id,
+            message: `Critical event reported for ${component_id}`,
+            status,
+            created_at: new Date().toISOString(),
+          })
+          
+        if (alertError) {
+          console.error('Error inserting into alerts:', alertError)
+        }
+      }
+
       return res.status(201).json({ success: true, event_id: event.id })
     }
 

@@ -44,13 +44,14 @@ function generateMetrics(name, sla) {
 }
 
 export default function WorkflowDashboard() {
-  const { activeWorkflowId, getWorkflow, openBuilder } = useWorkflow()
-  const workflow = getWorkflow(activeWorkflowId)
+  const { workflow, activeWorkflowId, openBuilder, setActiveView } = useWorkflow()
 
+  // Runtime State
   const [runtimeComponents, setRuntimeComponents] = useState([])
   const [selectedNodeId, setSelectedNodeId] = useState(null)
   const [incidentEvents, setIncidentEvents] = useState([])
   const [alertDismissed, setAlertDismissed] = useState(false)
+  const [globalAlert, setGlobalAlert] = useState(null)
   const [currentTime, setCurrentTime] = useState(new Date())
 
   // Trace Mode State
@@ -64,6 +65,7 @@ export default function WorkflowDashboard() {
 
   // Realtime subscription ref
   const realtimeChannel = useRef(null)
+  const alertChannel = useRef(null)
 
   // Initialize runtime state from workflow
   useEffect(() => {
@@ -78,6 +80,7 @@ export default function WorkflowDashboard() {
     setSelectedNodeId(null)
     setIncidentEvents([])
     setAlertDismissed(false)
+    setGlobalAlert(null)
     setActiveTraceId(null)
     setTracePath([])
     setTraceLogs([])
@@ -105,12 +108,34 @@ export default function WorkflowDashboard() {
       )
       .subscribe()
 
+    // Subscribe to global alerts for this workflow
+    const aChannel = supabase
+      .channel(`alerts-${activeWorkflowId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'alerts',
+          filter: `workflow_id=eq.${activeWorkflowId}`
+        },
+        (payload) => {
+          setGlobalAlert(payload.new)
+        }
+      )
+      .subscribe()
+
     realtimeChannel.current = channel
+    alertChannel.current = aChannel
 
     return () => {
       if (realtimeChannel.current) {
         supabase.removeChannel(realtimeChannel.current)
         realtimeChannel.current = null
+      }
+      if (alertChannel.current) {
+        supabase.removeChannel(alertChannel.current)
+        alertChannel.current = null
       }
     }
   }, [activeWorkflowId])
@@ -494,6 +519,23 @@ export default function WorkflowDashboard() {
 
   return (
     <div className="dashboard-container">
+      {/* Global Alert Toast */}
+      {globalAlert && (
+        <div style={{ position: 'absolute', top: '80px', left: '50%', transform: 'translateX(-50%)', zIndex: 100, background: '#ef4444', color: '#fff', padding: '16px 24px', borderRadius: '8px', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', gap: '16px', animation: 'slideDown 0.3s ease-out' }}>
+          <div style={{ fontSize: '24px' }}>🚨</div>
+          <div>
+            <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>CRITICAL ALERT</div>
+            <div style={{ fontSize: '13px' }}>{globalAlert.message}</div>
+          </div>
+          <button 
+            style={{ background: 'rgba(0,0,0,0.2)', border: 'none', color: '#fff', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', marginLeft: '12px' }}
+            onClick={() => setGlobalAlert(null)}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <header className="header">
         <div className="header-brand">
@@ -527,6 +569,12 @@ export default function WorkflowDashboard() {
         </div>
 
         <div className="header-actions">
+          <button className="btn btn--ghost btn--sm" onClick={() => setActiveView('analytics')}>
+            📊 Analytics
+          </button>
+          <button className="btn btn--ghost btn--sm" onClick={() => openBuilder(workflow.id)}>
+            Edit Layout
+          </button>
           <button className="btn btn--danger btn--sm" onClick={simulateIncident}>
             🔴 Simulate Incident
           </button>

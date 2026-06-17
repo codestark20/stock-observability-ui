@@ -57,6 +57,10 @@ export async function fetchEntityTrace(workflowId, entityId) {
   return request(`/workflows/${workflowId}/trace/${encodeURIComponent(entityId)}`)
 }
 
+export async function fetchWorkflowAnalytics(workflowId) {
+  return request(`/workflows/${workflowId}/analytics`)
+}
+
 export async function ingestEvent(eventData) {
   return request('/v1/events', { method: 'POST', body: eventData })
 }
