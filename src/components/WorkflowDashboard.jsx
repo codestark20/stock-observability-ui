@@ -540,7 +540,7 @@ export default function WorkflowDashboard() {
       {/* Header */}
       <header className="header">
         <div className="header-brand">
-          <div>
+          <div style={{ minWidth: 0 }}>
             <div className="header-title">{workflow.name}</div>
             <div className="header-subtitle">
               Live Monitoring
@@ -548,13 +548,13 @@ export default function WorkflowDashboard() {
             </div>
           </div>
           {workflow.commonLink && (
-            <div className="common-link-badge">
+            <div className="common-link-badge" title={workflow.commonLink}>
               🔗 {workflow.commonLink}
             </div>
           )}
         </div>
 
-        <div className="header-center" style={{ flex: 1, display: 'flex', justifyContent: 'center', gap: '20px' }}>
+        <div className="header-center">
           <div className="live-clock">
             <span className="live-clock-dot" />
             {formatTime(currentTime)}

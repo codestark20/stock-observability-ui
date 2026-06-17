@@ -1774,6 +1774,9 @@ body {
   font-weight: 500;
   white-space: nowrap;
   margin-left: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 250px;
 }
 
 /* ── Edge Direction Menu ──────────────────────────────── */
