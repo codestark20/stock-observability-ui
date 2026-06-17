@@ -22,8 +22,8 @@ function AppContent() {
   const sidebarWorkflows = workflows.map(wf => ({
     id: wf.id,
     name: wf.name,
-    componentCount: wf.components.length,
-    createdAt: wf.createdAt,
+    componentCount: wf.components?.length || 0,
+    createdAt: wf.created_at || wf.createdAt,
     overallStatus: 'healthy'
   }))
 

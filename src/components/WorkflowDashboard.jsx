@@ -44,7 +44,8 @@ function generateMetrics(name, sla) {
 }
 
 export default function WorkflowDashboard() {
-  const { workflow, activeWorkflowId, openBuilder, setActiveView } = useWorkflow()
+  const { activeWorkflowId, getWorkflow, openBuilder, setActiveView } = useWorkflow()
+  const workflow = getWorkflow(activeWorkflowId)
 
   // Runtime State
   const [runtimeComponents, setRuntimeComponents] = useState([])
