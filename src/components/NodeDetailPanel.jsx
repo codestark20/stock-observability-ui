@@ -218,7 +218,7 @@ export default function NodeDetailPanel({
                 className="btn btn--ghost btn--sm"
                 style={{ fontSize: '10px', padding: '2px 8px' }}
                 onClick={() => {
-                  const snippet = `curl -X POST ${window.location.origin}/api/v1/events -H "Content-Type: application/json" -d "{\\"component_id\\": \\"${data.label.toLowerCase().replace(/\s+/g, '_')}\\", \\"entity_id\\": \\"ORD-12345\\", \\"status\\": \\"healthy\\", \\"duration_ms\\": 145, \\"message\\": \\"Processed successfully\\"}"`
+                  const snippet = `curl -X POST ${window.location.origin}/api/v1/events -H "Content-Type: application/json" -d "{\\"component_id\\": \\"${node.id}\\", \\"entity_id\\": \\"ORD-12345\\", \\"status\\": \\"healthy\\", \\"duration_ms\\": 145, \\"message\\": \\"Processed successfully\\"}"`
                   navigator.clipboard.writeText(snippet)
                     .then(() => alert('Copied to clipboard!'))
                     .catch(() => alert('Copy failed — please select and copy manually'))
@@ -227,7 +227,7 @@ export default function NodeDetailPanel({
             </div>
             <div className="glass-card glass-card--compact" style={{ background: '#020617', border: '1px solid var(--border-subtle)', marginTop: '8px' }}>
               <pre style={{ margin: 0, fontSize: '11px', fontFamily: 'var(--font-mono)', color: '#e2e8f0', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
-{`curl -X POST ${window.location.origin}/api/v1/events -H "Content-Type: application/json" -d "{\\"component_id\\": \\"${data.label.toLowerCase().replace(/\s+/g, '_')}\\", \\"entity_id\\": \\"ORD-12345\\", \\"status\\": \\"healthy\\", \\"duration_ms\\": 145, \\"message\\": \\"Processed successfully\\"}"`}
+{`curl -X POST ${window.location.origin}/api/v1/events -H "Content-Type: application/json" -d "{\\"component_id\\": \\"${node.id}\\", \\"entity_id\\": \\"ORD-12345\\", \\"status\\": \\"healthy\\", \\"duration_ms\\": 145, \\"message\\": \\"Processed successfully\\"}"`}
               </pre>
             </div>
             <div style={{ marginTop: '16px', padding: '10px', background: 'rgba(34, 197, 94, 0.08)', border: '1px solid rgba(34, 197, 94, 0.2)', borderRadius: 'var(--radius-sm)' }}>
