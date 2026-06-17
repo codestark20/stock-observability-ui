@@ -56,15 +56,27 @@ export default async function handler(req, res) {
       avgDurationPerComponent[compId] = componentDurationSum[compId] / componentDurationCount[compId]
     }
 
+    let totalDuration = 0
+    for (const event of events) {
+      if (event.duration_ms) {
+        totalDuration += event.duration_ms
+      }
+    }
+    const averageDuration = totalEvents > 0 ? totalDuration / totalEvents : 0
+    const successRate = totalEvents > 0 ? (healthyCount / totalEvents) * 100 : 0
+
     return res.status(200).json({
-      workflow_id: workflowId,
-      total_events: totalEvents,
-      status_counts: {
+      workflowId,
+      totalEvents,
+      successRate,
+      averageDuration,
+      statusBreakdown: {
         healthy: healthyCount,
         warning: warningCount,
         critical: criticalCount
       },
-      avg_duration_per_component: avgDurationPerComponent
+      componentBreakdown: componentDurationCount,
+      avgDurationPerComponent: avgDurationPerComponent
     })
 
   } catch (err) {

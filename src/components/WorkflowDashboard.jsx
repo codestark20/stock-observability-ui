@@ -14,7 +14,7 @@ import IncidentTimeline from './IncidentTimeline'
 import TraceTimelinePanel from './TraceTimelinePanel'
 import { useWorkflow } from '../context/WorkflowContext'
 import { supabase, isSupabaseEnabled } from '../lib/supabase'
-import { fetchEntityTrace } from '../lib/api'
+import { fetchEntityTrace, fetchWorkflowEvents } from '../lib/api'
 
 const nodeTypes = { dashboardNode: DashboardNode }
 
@@ -90,6 +90,48 @@ export default function WorkflowDashboard() {
   // ── Supabase Realtime Subscription ──────────────────────
   useEffect(() => {
     if (!isSupabaseEnabled || !activeWorkflowId) return
+
+    // Fetch historical events to pre-fill the log
+    fetchWorkflowEvents(activeWorkflowId)
+      .then(events => {
+        if (!events || events.length === 0) return
+        
+        // Populate initial incident log with last 50 events
+        const historicalLog = events.slice(0, 50).map(event => {
+          const severity = event.status === 'critical' ? 'critical'
+            : event.status === 'warning' ? 'warning'
+            : event.status === 'failed' ? 'critical'
+            : 'healthy'
+          const comp = workflow?.components?.find(c => c.id === event.component_id)
+          const compName = comp?.name || event.component_id || 'Unknown'
+          return {
+            id: String(event.id || Math.random()),
+            time: formatTime(new Date(event.created_at)),
+            message: `<strong>${compName}</strong> — ${event.message || event.status} (${event.entity_id})`,
+            severity
+          }
+        })
+        setIncidentEvents(historicalLog)
+
+        // Pre-fill node statuses based on latest events
+        setRuntimeComponents(prevComps => {
+          const updated = [...prevComps]
+          for (const event of events) {
+            const compIndex = updated.findIndex(c => c.id === event.component_id)
+            if (compIndex !== -1) {
+              // Only update if we haven't seen a newer event for this component
+              // (Assuming events are ordered by created_at desc)
+              updated[compIndex] = {
+                ...updated[compIndex],
+                status: event.status || updated[compIndex].status,
+                latency: event.duration_ms ? `${event.duration_ms}ms` : updated[compIndex].latency
+              }
+            }
+          }
+          return updated
+        })
+      })
+      .catch(err => console.error("Failed to fetch historical events:", err))
 
     // Subscribe to new events for this workflow
     const channel = supabase
@@ -566,8 +608,10 @@ export default function WorkflowDashboard() {
           </div>
         </div>
 
-        <div className="header-actions" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-
+        <div className="header-actions">
+          <button className="btn btn--ghost btn--sm" onClick={() => setActiveView('analytics')}>
+            📊 Analytics
+          </button>
           <button className="btn btn--danger btn--sm" onClick={simulateIncident}>
             🔴 Simulate Incident
           </button>
