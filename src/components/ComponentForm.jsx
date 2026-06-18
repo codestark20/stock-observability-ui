@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { FiX } from 'react-icons/fi'
 
 const ROLE_OPTIONS = [
   { value: 'intermediate', label: '⬡ Intermediate', desc: 'Regular workflow step' },
@@ -62,9 +63,9 @@ export default function ComponentForm({
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
+        <div className="component-form-header">
           <h2>{initialData ? 'Edit Component' : 'Add Component'}</h2>
-          <button className="close-btn" onClick={onClose}>✕</button>
+          <button className="close-btn" onClick={onClose}><FiX /></button>
         </div>
 
         <div className="modal-body">

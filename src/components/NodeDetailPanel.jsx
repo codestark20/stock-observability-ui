@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { FiX, FiUser, FiActivity, FiRefreshCw, FiPause, FiZap } from 'react-icons/fi'
 import MetricsPanel from './MetricsPanel'
 
 function generateChartData(label, status) {
@@ -85,7 +86,7 @@ export default function NodeDetailPanel({
             {data.status}
           </span>
         </div>
-        <button className="close-btn" onClick={onClose} title="Close (Esc)">✕</button>
+        <button className="close-btn" onClick={onClose} title="Close (Esc)"><FiX /></button>
       </div>
 
       <div className="panel-body">
@@ -113,12 +114,12 @@ export default function NodeDetailPanel({
               <div className="glass-card glass-card--compact" style={{ marginBottom: '12px' }}>
                 {data.manager && (
                   <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
-                    👤 <strong>Manager:</strong> {data.manager}
+                    <FiUser style={{ marginRight: '4px' }} /> <strong>Manager:</strong> {data.manager}
                   </div>
                 )}
                 {data.sla && (
                   <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-                    📋 <strong>SLA:</strong> {data.sla}
+                    <FiActivity style={{ marginRight: '4px' }} /> <strong>SLA:</strong> {data.sla}
                   </div>
                 )}
               </div>
@@ -165,9 +166,9 @@ export default function NodeDetailPanel({
 
             <div className="section-label">Actions</div>
             <div className="controls-group">
-              <button className="btn btn--success btn--sm" onClick={onRestart}>↻ Restart</button>
-              <button className="btn btn--ghost btn--sm" onClick={onPause}>⏸ Pause</button>
-              <button className="btn btn--primary btn--sm" onClick={onScale}>⚡ Scale</button>
+              <button className="btn btn--success btn--sm" onClick={onRestart}><FiRefreshCw style={{ marginRight: '4px' }} /> Restart</button>
+              <button className="btn btn--ghost btn--sm" onClick={onPause}><FiPause style={{ marginRight: '4px' }} /> Pause</button>
+              <button className="btn btn--primary btn--sm" onClick={onScale}><FiZap style={{ marginRight: '4px' }} /> Scale</button>
             </div>
             <div style={{ marginTop: '6px', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
               <span className="kbd">R</span>

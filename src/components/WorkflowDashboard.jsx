@@ -15,6 +15,7 @@ import TraceTimelinePanel from './TraceTimelinePanel'
 import { useWorkflow } from '../context/WorkflowContext'
 import { supabase, isSupabaseEnabled } from '../lib/supabase'
 import { fetchEntityTrace, fetchWorkflowEvents } from '../lib/api'
+import { FiAlertCircle, FiRefreshCw, FiEdit2, FiLink, FiSearch, FiClipboard, FiActivity } from 'react-icons/fi'
 
 const nodeTypes = { dashboardNode: DashboardNode }
 
@@ -550,7 +551,7 @@ export default function WorkflowDashboard() {
   if (runtimeComponents.length === 0) {
     return (
       <div className="welcome-page">
-        <div className="welcome-icon">📋</div>
+        <div className="welcome-icon"><FiClipboard /></div>
         <h2>{workflow.name}</h2>
         <p style={{ color: 'var(--text-muted)', marginTop: '8px' }}>This workflow has no components yet.</p>
         <button className="btn btn--primary" style={{ marginTop: '16px' }} onClick={() => openBuilder(workflow.id)}>
@@ -565,7 +566,7 @@ export default function WorkflowDashboard() {
       {/* Global Alert Toast */}
       {globalAlert && (
         <div style={{ position: 'absolute', top: '80px', left: '50%', transform: 'translateX(-50%)', zIndex: 100, background: '#ef4444', color: '#fff', padding: '16px 24px', borderRadius: '8px', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', gap: '16px', animation: 'slideDown 0.3s ease-out' }}>
-          <div style={{ fontSize: '24px' }}>🚨</div>
+          <div style={{ fontSize: '24px' }}><FiAlertCircle /></div>
           <div>
             <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>CRITICAL ALERT</div>
             <div style={{ fontSize: '13px' }}>{globalAlert.message}</div>
@@ -586,12 +587,12 @@ export default function WorkflowDashboard() {
             <div className="header-title">{workflow.name}</div>
             <div className="header-subtitle">
               Live Monitoring
-              {isSupabaseEnabled && <span className="realtime-badge" title="Connected to Supabase Realtime"> 🟢 Live</span>}
+              {isSupabaseEnabled && <span className="realtime-badge" title="Connected to Supabase Realtime"><div className="status-dot healthy"></div> Live</span>}
             </div>
           </div>
           {workflow.commonLink && (
             <div className="common-link-badge" title={workflow.commonLink}>
-              🔗 {workflow.commonLink}
+              <FiLink style={{ marginRight: '6px' }} /> {workflow.commonLink}
             </div>
           )}
         </div>
@@ -611,13 +612,13 @@ export default function WorkflowDashboard() {
         <div className="header-actions">
 
           <button className="btn btn--danger btn--sm" onClick={simulateIncident}>
-            🔴 Simulate Incident
+            <FiAlertCircle style={{ marginRight: '6px' }} /> Test Alert
           </button>
           <button className="btn btn--ghost btn--sm" onClick={resetAll}>
-            ↺ Reset
+            <FiRefreshCw style={{ marginRight: '6px' }} /> Reset
           </button>
           <button className="btn btn--ghost btn--sm" onClick={() => openBuilder(workflow.id)}>
-            ✏️ Edit Layout
+            <FiEdit2 style={{ marginRight: '6px' }} /> Edit Layout
           </button>
         </div>
       </header>
@@ -681,7 +682,7 @@ export default function WorkflowDashboard() {
                 value={traceIdSearch}
                 onChange={e => setTraceIdSearch(e.target.value)}
               />
-              <button type="submit" className="trace-search-btn">🔍 Track</button>
+              <button type="submit" className="trace-search-btn"><FiSearch style={{ marginRight: '6px' }} /> Track</button>
             </form>
           </div>
 

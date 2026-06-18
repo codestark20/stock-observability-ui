@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { FiEdit2, FiCopy, FiTrash2, FiPlus, FiMoreHorizontal, FiZap } from 'react-icons/fi'
 
 function formatDate(isoString) {
   const date = new Date(isoString)
@@ -31,17 +32,19 @@ export default function Sidebar({
 
   return (
     <nav className="sidebar">
-      <div className="sidebar-header">
-        <div className="header-logo">⚡</div>
-        <div>
-          <div className="header-title">Workflow Platform</div>
+      <div className="sidebar-brand">
+        <div className="brand-logo"><FiZap /></div>
+        <div className="brand-text">
+          <h1>Workflow Platform</h1>
           <div className="header-subtitle">OBSERVABILITY</div>
         </div>
       </div>
 
-      <button className="btn btn--primary sidebar-create-btn" onClick={onCreateWorkflow}>
-        + Create Workflow
-      </button>
+      <div className="sidebar-section">
+        <button className="btn btn--primary sidebar-create-btn" onClick={onCreateWorkflow}>
+          <FiPlus style={{ marginRight: '6px' }} /> Create Workflow
+        </button>
+      </div>
 
       <div className="section-label" style={{ padding: '0 20px' }}>Your Workflows</div>
 
@@ -80,10 +83,10 @@ export default function Sidebar({
               </div>
               {menuOpenId === wf.id && (
                 <div className="workflow-card-dropdown" onClick={e => e.stopPropagation()}>
-                  <button onClick={() => { onEditWorkflow(wf.id); setMenuOpenId(null) }}>✏️ Edit</button>
-                  <button onClick={() => { onDuplicateWorkflow(wf.id); setMenuOpenId(null) }}>📄 Duplicate</button>
+                  <button onClick={() => { onEditWorkflow(wf.id); setMenuOpenId(null) }}><FiEdit2 style={{ marginRight: '6px' }} /> Edit</button>
+                  <button onClick={() => { onDuplicateWorkflow(wf.id); setMenuOpenId(null) }}><FiCopy style={{ marginRight: '6px' }} /> Duplicate</button>
                   <button onClick={() => { onDeleteWorkflow(wf.id); setMenuOpenId(null) }} className="dropdown-danger">
-                    🗑️ Delete
+                    <FiTrash2 style={{ marginRight: '6px' }} /> Delete
                   </button>
                 </div>
               )}

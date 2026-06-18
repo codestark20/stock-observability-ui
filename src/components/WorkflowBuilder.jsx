@@ -12,6 +12,7 @@ import 'reactflow/dist/style.css'
 
 import BuilderNode from './BuilderNode'
 import ComponentForm from './ComponentForm'
+import { FiArrowRight, FiArrowLeft, FiTrash2, FiSave, FiLayout, FiPlus, FiInfo, FiRefreshCw } from 'react-icons/fi'
 import { useWorkflow } from '../context/WorkflowContext'
 
 const nodeTypes = { builderNode: BuilderNode }
@@ -321,13 +322,13 @@ export default function WorkflowBuilder() {
 
         <div className="builder-toolbar-right">
           <button className="btn btn--primary btn--sm" onClick={() => { setEditingComponentId(null); setShowForm(true) }}>
-            + Add Component
+            <FiPlus style={{ marginRight: '6px' }} /> Add Component
           </button>
           <button className="btn btn--ghost btn--sm" onClick={autoLayout}>
-            ⊞ Auto Layout
+            <FiLayout style={{ marginRight: '6px' }} /> Auto Layout
           </button>
           <button className="btn btn--success btn--sm" onClick={handleSave}>
-            ✓ Save & Monitor
+            <FiSave style={{ marginRight: '6px' }} /> Save & Monitor
           </button>
         </div>
       </div>
@@ -342,7 +343,7 @@ export default function WorkflowBuilder() {
 
       {nodes.length > 0 && nodes.length < 3 && (
         <div className="builder-helper">
-          💡 Drag from <strong>blue dots</strong> to connect components. <strong>Click an edge</strong> to change direction (→ one-way, ↔ two-way, ← reverse).
+          <FiInfo style={{ marginRight: '6px', color: '#38bdf8' }} /> Drag from <strong>blue dots</strong> to connect components. <strong>Click an edge</strong> to change direction.
         </div>
       )}
 
@@ -381,20 +382,20 @@ export default function WorkflowBuilder() {
               className={`edge-direction-option ${edges.find(e => e.id === selectedEdgeId)?.data?.direction === 'one-way' ? 'edge-direction-option--active' : ''}`}
               onClick={() => setEdgeDirection('one-way')}
             >
-              <span className="edge-dir-arrow">→</span> One-way
+              <span className="edge-dir-arrow"><FiArrowRight /></span> One-way
             </button>
             <button
               className={`edge-direction-option ${edges.find(e => e.id === selectedEdgeId)?.data?.direction === 'two-way' ? 'edge-direction-option--active' : ''}`}
               onClick={() => setEdgeDirection('two-way')}
             >
-              <span className="edge-dir-arrow">↔</span> Two-way
+              <span className="edge-dir-arrow"><FiRefreshCw /></span> Two-way
             </button>
             <button className="edge-direction-option" onClick={() => setEdgeDirection('reverse')}>
-              <span className="edge-dir-arrow">←</span> Reverse
+              <span className="edge-dir-arrow"><FiArrowLeft /></span> Reverse
             </button>
             <div className="edge-direction-divider" />
             <button className="edge-direction-option edge-direction-option--danger" onClick={deleteSelectedEdge}>
-              🗑️ Delete Edge
+              <FiTrash2 style={{ marginRight: '6px' }} /> Delete Edge
             </button>
           </div>
         )}

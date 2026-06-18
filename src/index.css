@@ -4,60 +4,60 @@
 
 /* ── CSS Custom Properties ─────────────────────────────── */
 :root {
-  /* Background layers */
-  --bg-primary: #020617;
-  --bg-secondary: #0f172a;
-  --bg-tertiary: #1e293b;
-  --bg-elevated: #1e293b;
-  --bg-glass: rgba(15, 23, 42, 0.75);
-  --bg-glass-light: rgba(30, 41, 59, 0.6);
+  /* Background layers - Datadog/AWS style dark mode */
+  --bg-primary: #111827;
+  --bg-secondary: #1f2937;
+  --bg-tertiary: #374151;
+  --bg-elevated: #374151;
+  --bg-glass: rgba(31, 41, 55, 0.95);
+  --bg-glass-light: rgba(55, 65, 81, 0.95);
 
   /* Text */
-  --text-primary: #f1f5f9;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
-  --text-accent: #38bdf8;
+  --text-primary: #f9fafb;
+  --text-secondary: #9ca3af;
+  --text-muted: #6b7280;
+  --text-accent: #3b82f6;
 
-  /* Accent */
-  --accent-blue: #38bdf8;
-  --accent-cyan: #22d3ee;
-  --accent-indigo: #818cf8;
-  --accent-violet: #a78bfa;
+  /* Accent - Standardized enterprise colors */
+  --accent-blue: #3b82f6;
+  --accent-cyan: #06b6d4;
+  --accent-indigo: #6366f1;
+  --accent-violet: #8b5cf6;
 
   /* Status colors */
-  --status-healthy: #22c55e;
-  --status-healthy-bg: rgba(34, 197, 94, 0.12);
-  --status-healthy-glow: rgba(34, 197, 94, 0.4);
+  --status-healthy: #10b981;
+  --status-healthy-bg: rgba(16, 185, 129, 0.1);
+  --status-healthy-glow: transparent; /* Removed neon glow */
 
   --status-warning: #f59e0b;
-  --status-warning-bg: rgba(245, 158, 11, 0.12);
-  --status-warning-glow: rgba(245, 158, 11, 0.4);
+  --status-warning-bg: rgba(245, 158, 11, 0.1);
+  --status-warning-glow: transparent;
 
   --status-critical: #ef4444;
-  --status-critical-bg: rgba(239, 68, 68, 0.12);
-  --status-critical-glow: rgba(239, 68, 68, 0.4);
+  --status-critical-bg: rgba(239, 68, 68, 0.1);
+  --status-critical-glow: transparent;
 
   --status-paused: #6b7280;
-  --status-paused-bg: rgba(107, 114, 128, 0.12);
+  --status-paused-bg: rgba(107, 114, 128, 0.1);
 
   /* Borders */
-  --border-subtle: rgba(148, 163, 184, 0.08);
-  --border-default: rgba(148, 163, 184, 0.15);
-  --border-accent: rgba(56, 189, 248, 0.3);
+  --border-subtle: #374151;
+  --border-default: #4b5563;
+  --border-accent: #3b82f6;
 
-  /* Spacing & radius */
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 20px;
+  /* Spacing & radius - Sharper edges */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
   --radius-full: 9999px;
 
-  /* Shadows */
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
-  --shadow-glow-blue: 0 0 20px rgba(56, 189, 248, 0.15);
-  --shadow-glow-green: 0 0 20px rgba(34, 197, 94, 0.15);
+  /* Shadows - Flat, professional dropshadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-glow-blue: none;
+  --shadow-glow-green: none;
 
   /* Typography */
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -442,20 +442,19 @@ body {
   position: relative;
 }
 
-/* ── Glass Card ────────────────────────────────────────── */
+/* ── Flat Card (Formerly Glass) ────────────────────────── */
 .glass-card {
-  background: var(--bg-glass);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: var(--bg-tertiary);
   border: 1px solid var(--border-default);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-sm);
   padding: 16px;
-  transition: all var(--transition-base);
+  transition: all var(--transition-fast);
+  box-shadow: var(--shadow-sm);
 }
 
 .glass-card:hover {
   border-color: var(--border-accent);
-  box-shadow: var(--shadow-glow-blue);
+  box-shadow: var(--shadow-md);
 }
 
 .glass-card--compact {
@@ -1542,9 +1541,8 @@ body {
 
 .modal-overlay {
   position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(17, 24, 39, 0.85);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2227,17 +2225,13 @@ body {
 }
 
 .panel-toggle-btn {
-  background: var(--bg-glass);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: var(--bg-tertiary);
   box-shadow: var(--shadow-md);
   color: var(--text-primary);
 }
 
 .canvas-search-form {
-  background: var(--bg-glass);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: var(--bg-tertiary);
   box-shadow: var(--shadow-md);
   margin-left: auto; /* Push to the right if left is empty */
 }
