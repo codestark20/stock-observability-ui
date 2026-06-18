@@ -1,0 +1,31 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 5s
+    send_batch_size: 512
+
+exporters:
+  otlphttp/vercel:
+    endpoint: https://stock-observability-ui.vercel.app/api/v1/otel
+    headers:
+      x-otel-secret: "${OTEL_INGEST_SECRET}"
+    compression: gzip
+    retry_on_failure:
+      enabled: true
+      max_elapsed_time: 300s
+  logging:
+    verbosity: basic
+
+service:
+  pipelines:
+    traces:
+      receivers:  [otlp]
+      processors: [batch]
+      exporters:  [otlphttp/vercel, logging]

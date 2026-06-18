@@ -44,7 +44,7 @@ export default function AnalyticsDashboard({ workflow, onClose }) {
       {loading ? (
         <div style={{ textAlign: 'center', marginTop: '40px', color: 'var(--text-muted)' }}>Loading analytics...</div>
       ) : error ? (
-        <div style={{ textAlign: 'center', marginTop: '40px', color: '#ef4444' }}>Error: {error}</div>
+        <div style={{ textAlign: 'center', marginTop: '40px', color: '#ce3030' }}>Error: {error}</div>
       ) : !data || data.totalEvents === 0 ? (
         <div style={{ textAlign: 'center', marginTop: '60px' }}>
           <div style={{ fontSize: '48px', marginBottom: '16px' }}>📊</div>
