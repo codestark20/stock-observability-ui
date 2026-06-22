@@ -852,8 +852,8 @@ export default function WorkflowDashboard() {
         {selectedNodeId && (
           <NodeDetailPanel 
             node={nodes.find(n => n.id === selectedNodeId)} 
-            metricsData={componentMetrics[nodes.find(n => n.id === selectedNodeId)?.data?.componentId] || {}}
-            logsData={componentLogs[nodes.find(n => n.id === selectedNodeId)?.data?.componentId] || []}
+            metricsData={metricsData[selectedNodeId] || {}}
+            logsData={logsData[selectedNodeId] || []}
             activeTraceId={activeTraceId}
             traceEvents={traceLogs}
             onClose={() => setSelectedNodeId(null)}
