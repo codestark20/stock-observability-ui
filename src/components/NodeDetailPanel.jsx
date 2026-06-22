@@ -23,7 +23,13 @@ export default function NodeDetailPanel({
   if (!node) return null
 
   const { data } = node
-  const realLogs = logsData || []
+  let realLogs = logsData || []
+
+  // If a trace is currently selected globally, only show logs that belong to spans in that trace
+  if (activeTraceId && traceEvents && traceEvents.length > 0) {
+    const validSpanIds = new Set(traceEvents.map(e => e.span_id).filter(Boolean))
+    realLogs = realLogs.filter(log => log.span_id && validSpanIds.has(log.span_id))
+  }
 
   // Use real metrics if available, otherwise empty
   const componentMetrics = metricsData || {}

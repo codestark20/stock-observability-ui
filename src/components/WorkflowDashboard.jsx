@@ -849,11 +849,13 @@ export default function WorkflowDashboard() {
         </div>
 
         {/* Right Panel */}
-        {selectedNode && (
-          <NodeDetailPanel
-            node={selectedNode}
-            metricsData={metricsData[selectedNodeId] || null}
-            logsData={logsData[selectedNodeId] || null}
+        {selectedNodeId && (
+          <NodeDetailPanel 
+            node={nodes.find(n => n.id === selectedNodeId)} 
+            metricsData={componentMetrics[nodes.find(n => n.id === selectedNodeId)?.data?.componentId] || {}}
+            logsData={componentLogs[nodes.find(n => n.id === selectedNodeId)?.data?.componentId] || []}
+            activeTraceId={activeTraceId}
+            traceEvents={traceLogs}
             onClose={() => setSelectedNodeId(null)}
             onRestart={restartService}
             onPause={pauseService}
