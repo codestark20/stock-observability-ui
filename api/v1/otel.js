@@ -57,7 +57,9 @@ export default async function handler(req, res) {
           entity_id:    entityId,
           status,
           duration_ms:  Number(durationMs),
-          message:      span.name || ''
+          message:      span.name || '',
+          span_id:      span.spanId,
+          parent_span_id: span.parentSpanId || null
         });
       }
     }

@@ -12,7 +12,7 @@ import 'reactflow/dist/style.css'
 
 import BuilderNode from './BuilderNode'
 import ComponentForm from './ComponentForm'
-import { FiArrowRight, FiArrowLeft, FiTrash2, FiSave, FiLayout, FiPlus, FiInfo, FiRefreshCw } from 'react-icons/fi'
+import { FiArrowRight, FiArrowLeft, FiTrash2, FiSave, FiLayout, FiPlus, FiInfo, FiRefreshCw, FiCommand } from 'react-icons/fi'
 import { useWorkflow } from '../context/WorkflowContext'
 
 const nodeTypes = { builderNode: BuilderNode }
@@ -75,6 +75,7 @@ export default function WorkflowBuilder() {
   const [hasChanges, setHasChanges] = useState(false)
   const [selectedEdgeId, setSelectedEdgeId] = useState(null)
   const [edgeMenuPos, setEdgeMenuPos] = useState(null)
+  const [isDiscovering, setIsDiscovering] = useState(false)
 
   // Load workflow data into local state
   useEffect(() => {
@@ -252,6 +253,76 @@ export default function WorkflowBuilder() {
     setHasChanges(true)
   }, [nodes])
 
+  const discoverTopology = useCallback(async () => {
+    if (!editingWorkflowId) return
+    setIsDiscovering(true)
+    try {
+      const res = await fetch(`/api/workflows/${editingWorkflowId}/discover`)
+      const data = await res.json()
+      
+      let newEdgesCount = 0
+      let newNodesCount = 0
+
+      // Add missing nodes
+      if (data.missingNodes && data.missingNodes.length > 0) {
+        data.missingNodes.forEach(mn => {
+          const compId = addComponent(editingWorkflowId, { name: mn.name, manager: 'Auto-Discovered', sla: '99.9%' })
+          const existingCount = nodes.length + newNodesCount
+          const col = existingCount % 3
+          const row = Math.floor(existingCount / 3)
+          const newNode = {
+            id: compId, // Note: the backend returned mn.id but we let context create it or we use mn.id. Wait, addComponent generates ID. 
+            // Better to just push to local state and save.
+            type: 'builderNode',
+            position: { x: 100 + col * 300, y: 80 + row * 280 },
+            data: {
+              name: mn.name, manager: 'Auto-Discovered', sla: '99.9%', role: 'intermediate', linkUsage: '',
+              componentId: compId,
+              onEdit: handleEditComponent,
+              onDelete: handleDeleteComponent
+            }
+          }
+          setNodes(prev => [...prev, newNode])
+          newNodesCount++
+        })
+      }
+
+      // We need to map the backend IDs if addComponent changed them.
+      // Actually, if we just want to draw edges between existing components, we can just do that.
+      if (data.edges && data.edges.length > 0) {
+        setEdges(prev => {
+          const nextEdges = [...prev]
+          data.edges.forEach(apiEdge => {
+            // Check if edge already exists
+            const exists = nextEdges.some(e => e.source === apiEdge.source && e.target === apiEdge.target)
+            if (!exists) {
+              nextEdges.push({
+                id: `edge-${Date.now()}-${Math.random()}`,
+                source: apiEdge.source,
+                target: apiEdge.target,
+                data: { direction: 'one-way' }
+              })
+              newEdgesCount++
+            }
+          })
+          return nextEdges
+        })
+      }
+
+      if (newEdgesCount > 0 || newNodesCount > 0) {
+        setHasChanges(true)
+        alert(`Discovered ${newNodesCount} new components and ${newEdgesCount} new connections!`)
+      } else {
+        alert("No new connections found from recent traces.")
+      }
+    } catch (err) {
+      console.error(err)
+      alert("Failed to discover topology.")
+    } finally {
+      setIsDiscovering(false)
+    }
+  }, [editingWorkflowId, nodes.length, addComponent, handleEditComponent, handleDeleteComponent])
+
   const existingNames = useMemo(() => {
     if (!workflow) return []
     return workflow.components.map(c => c.name)
@@ -323,6 +394,9 @@ export default function WorkflowBuilder() {
         <div className="builder-toolbar-right">
           <button className="btn btn--primary btn--sm" onClick={() => { setEditingComponentId(null); setShowForm(true) }}>
             <FiPlus style={{ marginRight: '6px' }} /> Add Component
+          </button>
+          <button className="btn btn--ghost btn--sm" onClick={discoverTopology} disabled={isDiscovering}>
+            <FiCommand style={{ marginRight: '6px' }} /> {isDiscovering ? 'Discovering...' : 'Auto-Discover'}
           </button>
           <button className="btn btn--ghost btn--sm" onClick={autoLayout}>
             <FiLayout style={{ marginRight: '6px' }} /> Auto Layout

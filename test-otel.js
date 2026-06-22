@@ -3,6 +3,9 @@ const componentId = "of_checkout";
 const SECRET = "81b78b548e3fb0c466fa087d343d0b3f8efbaa86c49e93b3a0f655502cec8445";
 const ENDPOINT = "https://stock-observability-ui.vercel.app/api/v1";
 
+const commonTraceId = crypto.randomUUID().replace(/-/g, '');
+const parentSpanId = crypto.randomUUID().replace(/-/g, '').slice(0, 16);
+
 // ── 1. Send a Trace ────────────────────────────────────────
 const tracePayload = {
   resourceSpans: [{
@@ -10,20 +13,37 @@ const tracePayload = {
       attributes: [{ key: "service.name", value: { stringValue: "checkout-service" } }]
     },
     scopeSpans: [{
-      spans: [{
-        traceId: crypto.randomUUID().replace(/-/g, ''),
-        spanId: crypto.randomUUID().replace(/-/g, '').slice(0, 16),
-        name: "POST /api/checkout",
-        kind: 1,
-        startTimeUnixNano: String(Date.now() * 1000000),
-        endTimeUnixNano: String((Date.now() + 145) * 1000000),
-        status: { code: 1 },
-        attributes: [
-          { key: "workflow.id", value: { stringValue: workflowId } },
-          { key: "component.id", value: { stringValue: componentId } },
-          { key: "entity.id", value: { stringValue: "ORD-" + Math.floor(Math.random() * 99999) } }
-        ]
-      }]
+      spans: [
+        {
+          traceId: commonTraceId,
+          spanId: parentSpanId,
+          name: "POST /api/checkout",
+          kind: 1,
+          startTimeUnixNano: String(Date.now() * 1000000),
+          endTimeUnixNano: String((Date.now() + 145) * 1000000),
+          status: { code: 1 },
+          attributes: [
+            { key: "workflow.id", value: { stringValue: workflowId } },
+            { key: "component.id", value: { stringValue: componentId } },
+            { key: "entity.id", value: { stringValue: "ORD-" + Math.floor(Math.random() * 99999) } }
+          ]
+        },
+        {
+          // Child span simulating a call to "payment-service"
+          traceId: commonTraceId,
+          spanId: crypto.randomUUID().replace(/-/g, '').slice(0, 16),
+          parentSpanId: parentSpanId,
+          name: "POST /api/payment",
+          kind: 1,
+          startTimeUnixNano: String((Date.now() + 10) * 1000000),
+          endTimeUnixNano: String((Date.now() + 100) * 1000000),
+          status: { code: 1 },
+          attributes: [
+            { key: "workflow.id", value: { stringValue: workflowId } },
+            { key: "component.id", value: { stringValue: "of_payment" } }
+          ]
+        }
+      ]
     }]
   }]
 };
