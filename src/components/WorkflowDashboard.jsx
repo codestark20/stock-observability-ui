@@ -56,6 +56,7 @@ export default function WorkflowDashboard() {
   const [globalAlert, setGlobalAlert] = useState(null)
   const [currentTime, setCurrentTime] = useState(new Date())
   const [metricsData, setMetricsData] = useState({}) // { [componentId]: { latency_ms: [...], throughput_rps: [...], cpu_percent: [...] } }
+  const [logsData, setLogsData] = useState({}) // { [componentId]: [ { timestamp, severity_text, body, ... }, ... ] }
 
   // Trace Mode State
   const [traceIdSearch, setTraceIdSearch] = useState('')
@@ -70,6 +71,7 @@ export default function WorkflowDashboard() {
   const realtimeChannel = useRef(null)
   const alertChannel = useRef(null)
   const metricsChannel = useRef(null)
+  const logsChannel = useRef(null)
 
   // Initialize runtime state from workflow
   useEffect(() => {
@@ -247,9 +249,55 @@ export default function WorkflowDashboard() {
         }))
       })
 
+    // Subscribe to real-time logs
+    const lChannel = supabase
+      .channel(`logs-${activeWorkflowId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'logs',
+          filter: `workflow_id=eq.${activeWorkflowId}`
+        },
+        (payload) => {
+          const l = payload.new
+          setLogsData(prev => {
+            const compLogs = prev[l.component_id] || []
+            return {
+              ...prev,
+              [l.component_id]: [l, ...compLogs].slice(0, 50) // Keep last 50 logs
+            }
+          })
+        }
+      )
+      .subscribe()
+
+    // Fetch historical logs for all components
+    supabase
+      .from('logs')
+      .select('*')
+      .eq('workflow_id', activeWorkflowId)
+      .order('timestamp', { ascending: false })
+      .limit(500)
+      .then(({ data: logsRows }) => {
+        if (!logsRows || logsRows.length === 0) return
+        const grouped = {}
+        for (const l of logsRows) {
+          if (!grouped[l.component_id]) grouped[l.component_id] = []
+          grouped[l.component_id].push(l)
+        }
+        // Keep only last 50 per component
+        for (const compId of Object.keys(grouped)) {
+          grouped[compId] = grouped[compId].slice(0, 50)
+        }
+        setLogsData(grouped)
+      })
+
     realtimeChannel.current = channel
     alertChannel.current = aChannel
     metricsChannel.current = mChannel
+    logsChannel.current = lChannel
 
     return () => {
       if (realtimeChannel.current) {
@@ -263,6 +311,10 @@ export default function WorkflowDashboard() {
       if (metricsChannel.current) {
         supabase.removeChannel(metricsChannel.current)
         metricsChannel.current = null
+      }
+      if (logsChannel.current) {
+        supabase.removeChannel(logsChannel.current)
+        logsChannel.current = null
       }
     }
   }, [activeWorkflowId])
@@ -801,6 +853,7 @@ export default function WorkflowDashboard() {
           <NodeDetailPanel
             node={selectedNode}
             metricsData={metricsData[selectedNodeId] || null}
+            logsData={logsData[selectedNodeId] || null}
             onClose={() => setSelectedNodeId(null)}
             onRestart={restartService}
             onPause={pauseService}

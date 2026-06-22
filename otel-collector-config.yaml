@@ -28,6 +28,14 @@ exporters:
     retry_on_failure:
       enabled: true
       max_elapsed_time: 300s
+  otlphttp/vercel-logs:
+    logs_endpoint: https://stock-observability-ui.vercel.app/api/v1/otel-logs
+    encoding: json
+    headers:
+      x-otel-secret: "${OTEL_INGEST_SECRET}"
+    retry_on_failure:
+      enabled: true
+      max_elapsed_time: 300s
   logging:
     verbosity: basic
 
@@ -41,3 +49,7 @@ service:
       receivers:  [otlp]
       processors: [batch]
       exporters:  [otlphttp/vercel-metrics, logging]
+    logs:
+      receivers:  [otlp]
+      processors: [batch]
+      exporters:  [otlphttp/vercel-logs, logging]

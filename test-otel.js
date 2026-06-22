@@ -65,7 +65,36 @@ const metricsPayload = {
   }]
 };
 
-// ── Send both ──────────────────────────────────────────────
+// ── 3. Send Logs ───────────────────────────────────────────
+const severities = ["INFO", "WARN", "ERROR"];
+const severity = severities[Math.floor(Math.random() * severities.length)];
+const messages = {
+  INFO: ["User completed checkout successfully", "Payment processing started", "Order validated"],
+  WARN: ["API response time degraded", "Rate limit approaching", "Retrying failed connection"],
+  ERROR: ["Database connection failed", "Invalid payment token", "Timeout waiting for inventory service"]
+};
+const message = messages[severity][Math.floor(Math.random() * 3)];
+
+const logsPayload = {
+  resourceLogs: [{
+    resource: {
+      attributes: [{ key: "service.name", value: { stringValue: "checkout-service" } }]
+    },
+    scopeLogs: [{
+      logRecords: [{
+        timeUnixNano: String(Date.now() * 1000000),
+        severityText: severity,
+        body: { stringValue: message },
+        attributes: [
+          { key: "workflow.id", value: { stringValue: workflowId } },
+          { key: "component.id", value: { stringValue: componentId } }
+        ]
+      }]
+    }]
+  }]
+};
+
+// ── Send all three ─────────────────────────────────────────
 async function run() {
   console.log("Sending trace + metrics to dashboard...\n");
 
@@ -87,8 +116,18 @@ async function run() {
   const metricsResult = await metricsRes.text();
   console.log(`  Metrics: ${metricsRes.status === 200 ? '✅' : '❌'} ${metricsResult}`);
 
+  // Send logs
+  const logsRes = await fetch(`${ENDPOINT}/otel-logs`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-otel-secret': SECRET },
+    body: JSON.stringify(logsPayload)
+  });
+  const logsResult = await logsRes.text();
+  console.log(`  Logs:    ${logsRes.status === 200 ? '✅' : '❌'} ${logsResult}`);
+
   console.log(`\n  Latency: ${latency.toFixed(1)}ms | Throughput: ${throughput.toFixed(0)} req/s | CPU: ${cpu.toFixed(1)}%`);
-  console.log("\nDone! Check your dashboard — the node should update with real chart data.");
+  console.log(`  Log:     [${severity}] ${message}`);
+  console.log("\nDone! Check your dashboard — the node should update with real chart data and logs.");
 }
 
 run().catch(err => console.error("Error:", err.message));

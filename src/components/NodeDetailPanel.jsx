@@ -7,37 +7,12 @@ function formatMetricTime(isoString) {
   return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
 }
 
-function generateLogs(label, status) {
-  if (status === 'critical') {
-    return [
-      { text: `ERROR: ${label} — connection timeout after 5000ms`, type: 'error' },
-      { text: `ERROR: ${label} — SLA breach detected`, type: 'error' },
-      { text: `WARNING: ${label} — memory utilization spike`, type: 'warning' },
-      { text: `INFO: ${label} — failover initiated`, type: 'info' }
-    ]
-  }
-  if (status === 'warning') {
-    return [
-      { text: `WARNING: ${label} — latency increased 3x`, type: 'warning' },
-      { text: `WARNING: ${label} — upstream dependency delayed`, type: 'warning' },
-      { text: `INFO: ${label} — circuit breaker triggered`, type: 'info' }
-    ]
-  }
-  if (status === 'paused') {
-    return [
-      { text: `INFO: ${label} — service paused by operator`, type: 'info' },
-      { text: `INFO: ${label} — draining active connections`, type: 'info' }
-    ]
-  }
-  return [
-    { text: `INFO: ${label} — all systems nominal`, type: 'info' },
-    { text: `INFO: ${label} — health check passed`, type: 'info' }
-  ]
-}
+// Removed generateLogs function
 
 export default function NodeDetailPanel({
   node,
   metricsData,
+  logsData,
   onClose,
   onRestart,
   onPause,
@@ -48,7 +23,7 @@ export default function NodeDetailPanel({
   if (!node) return null
 
   const { data } = node
-  const logs = generateLogs(data.label, data.status)
+  const realLogs = logsData || []
 
   // Use real metrics if available, otherwise empty
   const componentMetrics = metricsData || {}
@@ -179,9 +154,30 @@ export default function NodeDetailPanel({
         {/* Logs Tab */}
         {activeTab === 'logs' && (
           <div style={{ animation: 'fadeIn 0.3s ease-out' }}>
-            {logs.map((log, idx) => (
-              <div key={idx} className={`log-entry log-entry--${log.type}`}>{log.text}</div>
-            ))}
+            {realLogs.length === 0 ? (
+              <div style={{ 
+                padding: '24px', 
+                textAlign: 'center', 
+                color: 'var(--text-muted)', 
+                fontSize: '13px',
+                border: '1px dashed var(--border-default)',
+                borderRadius: 'var(--radius-sm)'
+              }}>
+                No real logs collected yet. Send OTel Logs to see them here.
+              </div>
+            ) : (
+              realLogs.map((log) => {
+                const sType = log.severity_text?.toLowerCase() || 'info'
+                const typeClass = sType.includes('err') ? 'error' : sType.includes('warn') ? 'warning' : 'info'
+                const time = new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+                return (
+                  <div key={log.id} className={`log-entry log-entry--${typeClass}`}>
+                    <span style={{ opacity: 0.7, marginRight: '8px', fontSize: '10px' }}>[{time}]</span>
+                    {log.body}
+                  </div>
+                )
+              })
+            )}
           </div>
         )}
 
