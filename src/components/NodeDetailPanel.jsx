@@ -13,6 +13,8 @@ export default function NodeDetailPanel({
   node,
   metricsData,
   logsData,
+  activeTraceId,
+  traceEvents,
   onClose,
   onRestart,
   onPause,

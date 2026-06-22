@@ -22,62 +22,18 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { data: events, error } = await supabase
-      .from('events')
-      .select('component_id, status, duration_ms')
-      .eq('workflow_id', workflowId)
-
-    if (error) throw error
-
-    let totalEvents = events.length
-    let healthyCount = 0
-    let warningCount = 0
-    let criticalCount = 0
-    let componentDurationSum = {}
-    let componentDurationCount = {}
-
-    for (const event of events) {
-      if (event.status === 'healthy') healthyCount++
-      else if (event.status === 'warning') warningCount++
-      else if (event.status === 'critical' || event.status === 'failed') criticalCount++
-
-      if (event.component_id && event.duration_ms !== null) {
-        if (!componentDurationSum[event.component_id]) {
-          componentDurationSum[event.component_id] = 0
-          componentDurationCount[event.component_id] = 0
-        }
-        componentDurationSum[event.component_id] += event.duration_ms
-        componentDurationCount[event.component_id] += 1
-      }
-    }
-
-    const avgDurationPerComponent = {}
-    for (const compId in componentDurationSum) {
-      avgDurationPerComponent[compId] = componentDurationSum[compId] / componentDurationCount[compId]
-    }
-
-    let totalDuration = 0
-    for (const event of events) {
-      if (event.duration_ms) {
-        totalDuration += event.duration_ms
-      }
-    }
-    const averageDuration = totalEvents > 0 ? totalDuration / totalEvents : 0
-    const successRate = totalEvents > 0 ? (healthyCount / totalEvents) * 100 : 0
-
-    return res.status(200).json({
-      workflowId,
-      totalEvents,
-      successRate,
-      averageDuration,
-      statusBreakdown: {
-        healthy: healthyCount,
-        warning: warningCount,
-        critical: criticalCount
-      },
-      componentBreakdown: componentDurationCount,
-      avgDurationPerComponent: avgDurationPerComponent
+    // Call the Postgres RPC function instead of downloading all rows to Vercel
+    const { data, error } = await supabase.rpc('get_workflow_analytics', {
+      p_workflow_id: workflowId
     })
+
+    if (error) {
+      console.error('Supabase RPC Error:', error)
+      throw error
+    }
+
+    // The RPC returns the exact JSON shape expected by the frontend
+    return res.status(200).json(data)
 
   } catch (err) {
     console.error('Error in analytics API:', err)
