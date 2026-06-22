@@ -42,6 +42,36 @@ const tracePayload = {
             { key: "workflow.id", value: { stringValue: workflowId } },
             { key: "component.id", value: { stringValue: "of_payment" } }
           ]
+        },
+        {
+          // A completely new, undiscovered child span calling "fraud-service"
+          traceId: commonTraceId,
+          spanId: crypto.randomUUID().replace(/-/g, '').slice(0, 16),
+          parentSpanId: parentSpanId,
+          name: "POST /api/fraud/verify",
+          kind: 1,
+          startTimeUnixNano: String((Date.now() + 15) * 1000000),
+          endTimeUnixNano: String((Date.now() + 50) * 1000000),
+          status: { code: 1 },
+          attributes: [
+            { key: "workflow.id", value: { stringValue: workflowId } },
+            { key: "component.id", value: { stringValue: "of_fraud_check" } }
+          ]
+        },
+        {
+          // A completely new, undiscovered child span calling "inventory-service"
+          traceId: commonTraceId,
+          spanId: crypto.randomUUID().replace(/-/g, '').slice(0, 16),
+          parentSpanId: parentSpanId,
+          name: "POST /api/inventory/check",
+          kind: 1,
+          startTimeUnixNano: String((Date.now() + 15) * 1000000),
+          endTimeUnixNano: String((Date.now() + 50) * 1000000),
+          status: { code: 1 },
+          attributes: [
+            { key: "workflow.id", value: { stringValue: workflowId } },
+            { key: "component.id", value: { stringValue: "of_inventory" } }
+          ]
         }
       ]
     }]

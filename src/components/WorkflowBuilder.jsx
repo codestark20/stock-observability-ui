@@ -262,17 +262,20 @@ export default function WorkflowBuilder() {
       
       let newEdgesCount = 0
       let newNodesCount = 0
+      
+      const idMap = new Map() // map backend component.id to ReactFlow node id
 
       // Add missing nodes
       if (data.missingNodes && data.missingNodes.length > 0) {
         data.missingNodes.forEach(mn => {
           const compId = addComponent(editingWorkflowId, { name: mn.name, manager: 'Auto-Discovered', sla: '99.9%' })
+          idMap.set(mn.id, compId)
+          
           const existingCount = nodes.length + newNodesCount
           const col = existingCount % 3
           const row = Math.floor(existingCount / 3)
           const newNode = {
-            id: compId, // Note: the backend returned mn.id but we let context create it or we use mn.id. Wait, addComponent generates ID. 
-            // Better to just push to local state and save.
+            id: compId, 
             type: 'builderNode',
             position: { x: 100 + col * 300, y: 80 + row * 280 },
             data: {
@@ -287,19 +290,21 @@ export default function WorkflowBuilder() {
         })
       }
 
-      // We need to map the backend IDs if addComponent changed them.
-      // Actually, if we just want to draw edges between existing components, we can just do that.
       if (data.edges && data.edges.length > 0) {
         setEdges(prev => {
           const nextEdges = [...prev]
           data.edges.forEach(apiEdge => {
+            // Map the source and target IDs to the newly created ones if applicable
+            const mappedSource = idMap.get(apiEdge.source) || apiEdge.source
+            const mappedTarget = idMap.get(apiEdge.target) || apiEdge.target
+
             // Check if edge already exists
-            const exists = nextEdges.some(e => e.source === apiEdge.source && e.target === apiEdge.target)
+            const exists = nextEdges.some(e => e.source === mappedSource && e.target === mappedTarget)
             if (!exists) {
               nextEdges.push({
                 id: `edge-${Date.now()}-${Math.random()}`,
-                source: apiEdge.source,
-                target: apiEdge.target,
+                source: mappedSource,
+                target: mappedTarget,
                 data: { direction: 'one-way' }
               })
               newEdgesCount++
