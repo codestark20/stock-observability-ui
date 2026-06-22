@@ -11,6 +11,7 @@ function formatMetricTime(isoString) {
 
 export default function NodeDetailPanel({
   node,
+  activeWorkflowId,
   metricsData,
   logsData,
   activeTraceId,
@@ -220,7 +221,7 @@ export default function NodeDetailPanel({
             <div className="glass-card glass-card--compact" style={{ background: '#020617', border: '1px solid var(--border-subtle)', marginTop: '8px' }}>
               <pre style={{ margin: 0, fontSize: '11px', fontFamily: 'var(--font-mono)', color: '#e2e8f0', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
 {`// Set these attributes on your spans:
-span.setAttribute('workflow.id', '<YOUR_WORKFLOW_ID>');
+span.setAttribute('workflow.id', '${activeWorkflowId}');
 span.setAttribute('component.id', '${node.id}');
 span.setAttribute('entity.id', '<TRACE_KEY>'); // e.g., Order ID`}
               </pre>

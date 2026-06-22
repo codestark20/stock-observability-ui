@@ -5,6 +5,7 @@ const ENDPOINT = "https://stock-observability-ui.vercel.app/api/v1";
 
 const commonTraceId = crypto.randomUUID().replace(/-/g, '');
 const parentSpanId = crypto.randomUUID().replace(/-/g, '').slice(0, 16);
+const inventorySpanId = crypto.randomUUID().replace(/-/g, '').slice(0, 16);
 
 // ── 1. Send a Trace ────────────────────────────────────────
 const tracePayload = {

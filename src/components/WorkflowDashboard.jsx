@@ -852,6 +852,7 @@ export default function WorkflowDashboard() {
         {selectedNodeId && (
           <NodeDetailPanel 
             node={selectedNode}
+            activeWorkflowId={activeWorkflowId}
             metricsData={metricsData[selectedNodeId] || {}}
             logsData={logsData[selectedNodeId] || []}
             activeTraceId={activeTraceId}
