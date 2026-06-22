@@ -12,11 +12,19 @@ processors:
     send_batch_size: 512
 
 exporters:
-  otlphttp/vercel:
-    endpoint: https://stock-observability-ui.vercel.app/api/v1/otel
+  otlphttp/vercel-traces:
+    traces_endpoint: https://stock-observability-ui.vercel.app/api/v1/otel
+    encoding: json
     headers:
       x-otel-secret: "${OTEL_INGEST_SECRET}"
-    compression: gzip
+    retry_on_failure:
+      enabled: true
+      max_elapsed_time: 300s
+  otlphttp/vercel-metrics:
+    metrics_endpoint: https://stock-observability-ui.vercel.app/api/v1/otel-metrics
+    encoding: json
+    headers:
+      x-otel-secret: "${OTEL_INGEST_SECRET}"
     retry_on_failure:
       enabled: true
       max_elapsed_time: 300s
@@ -28,4 +36,8 @@ service:
     traces:
       receivers:  [otlp]
       processors: [batch]
-      exporters:  [otlphttp/vercel, logging]
+      exporters:  [otlphttp/vercel-traces, logging]
+    metrics:
+      receivers:  [otlp]
+      processors: [batch]
+      exporters:  [otlphttp/vercel-metrics, logging]

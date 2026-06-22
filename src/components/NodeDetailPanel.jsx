@@ -2,18 +2,9 @@ import { useState } from 'react'
 import { FiX, FiUser, FiActivity, FiRefreshCw, FiPause, FiZap } from 'react-icons/fi'
 import MetricsPanel from './MetricsPanel'
 
-function generateChartData(label, status) {
-  const seed = label.length * 11
-  const latencyData = []
-  const tpsData = []
-  for (let i = 0; i < 20; i++) {
-    const base = status === 'critical' ? 150 : status === 'warning' ? 80 : 20
-    const latVal = base + ((seed * (i + 3) * 17) % 60) - 20
-    const tpsVal = 20000 + ((seed * (i + 1) * 23) % 15000)
-    latencyData.push({ time: `${i}s`, value: Math.max(5, latVal) })
-    tpsData.push({ time: `${i}s`, value: tpsVal })
-  }
-  return { latencyData, tpsData }
+function formatMetricTime(isoString) {
+  const d = new Date(isoString)
+  return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
 }
 
 function generateLogs(label, status) {
@@ -46,6 +37,7 @@ function generateLogs(label, status) {
 
 export default function NodeDetailPanel({
   node,
+  metricsData,
   onClose,
   onRestart,
   onPause,
@@ -57,7 +49,12 @@ export default function NodeDetailPanel({
 
   const { data } = node
   const logs = generateLogs(data.label, data.status)
-  const { latencyData, tpsData } = generateChartData(data.label, data.status)
+
+  // Use real metrics if available, otherwise empty
+  const componentMetrics = metricsData || {}
+  const latencyData = (componentMetrics.latency_ms || []).map(m => ({ time: formatMetricTime(m.created_at), value: m.value }))
+  const tpsData = (componentMetrics.throughput_rps || []).map(m => ({ time: formatMetricTime(m.created_at), value: m.value }))
+  const cpuData = (componentMetrics.cpu_percent || []).map(m => ({ time: formatMetricTime(m.created_at), value: m.value }))
   const rootCause = data.status === 'critical'
     ? `${data.label} experiencing cascading failure — SLA breach`
     : data.status === 'warning'
@@ -155,7 +152,7 @@ export default function NodeDetailPanel({
               </div>
             </div>
 
-            <MetricsPanel latencyData={latencyData} tpsData={tpsData} />
+            <MetricsPanel latencyData={latencyData} tpsData={tpsData} cpuData={cpuData} />
 
             <div className="section-label">Root Cause Analysis</div>
             <div className="glass-card glass-card--compact">

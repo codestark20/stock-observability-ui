@@ -55,6 +55,7 @@ export default function WorkflowDashboard() {
   const [alertDismissed, setAlertDismissed] = useState(false)
   const [globalAlert, setGlobalAlert] = useState(null)
   const [currentTime, setCurrentTime] = useState(new Date())
+  const [metricsData, setMetricsData] = useState({}) // { [componentId]: { latency_ms: [...], throughput_rps: [...], cpu_percent: [...] } }
 
   // Trace Mode State
   const [traceIdSearch, setTraceIdSearch] = useState('')
@@ -68,6 +69,7 @@ export default function WorkflowDashboard() {
   // Realtime subscription ref
   const realtimeChannel = useRef(null)
   const alertChannel = useRef(null)
+  const metricsChannel = useRef(null)
 
   // Initialize runtime state from workflow
   useEffect(() => {
@@ -169,8 +171,85 @@ export default function WorkflowDashboard() {
       )
       .subscribe()
 
+    // Subscribe to real-time metrics
+    const mChannel = supabase
+      .channel(`metrics-${activeWorkflowId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'metrics',
+          filter: `workflow_id=eq.${activeWorkflowId}`
+        },
+        (payload) => {
+          const m = payload.new
+          setMetricsData(prev => {
+            const compMetrics = prev[m.component_id] || {}
+            const metricList = compMetrics[m.metric_name] || []
+            return {
+              ...prev,
+              [m.component_id]: {
+                ...compMetrics,
+                [m.metric_name]: [...metricList, m].slice(-30) // Keep last 30 data points
+              }
+            }
+          })
+
+          // Update node headline values from real metrics
+          setRuntimeComponents(prev => prev.map(c => {
+            if (c.id !== m.component_id) return c
+            const updates = {}
+            if (m.metric_name === 'latency_ms') updates.latency = `${Math.round(m.value)}ms`
+            if (m.metric_name === 'throughput_rps') updates.tps = `${Math.round(m.value)} req/s`
+            if (m.metric_name === 'cpu_percent') updates.cpu = `${Math.round(m.value)}%`
+            return { ...c, ...updates }
+          }))
+        }
+      )
+      .subscribe()
+
+    // Fetch historical metrics for all components
+    supabase
+      .from('metrics')
+      .select('*')
+      .eq('workflow_id', activeWorkflowId)
+      .order('created_at', { ascending: true })
+      .limit(500)
+      .then(({ data: metricsRows }) => {
+        if (!metricsRows || metricsRows.length === 0) return
+        const grouped = {}
+        for (const m of metricsRows) {
+          if (!grouped[m.component_id]) grouped[m.component_id] = {}
+          if (!grouped[m.component_id][m.metric_name]) grouped[m.component_id][m.metric_name] = []
+          grouped[m.component_id][m.metric_name].push(m)
+        }
+        // Keep only last 30 per metric
+        for (const compId of Object.keys(grouped)) {
+          for (const metricName of Object.keys(grouped[compId])) {
+            grouped[compId][metricName] = grouped[compId][metricName].slice(-30)
+          }
+        }
+        setMetricsData(grouped)
+
+        // Update headline values from latest metrics
+        setRuntimeComponents(prev => prev.map(c => {
+          const compMetrics = grouped[c.id]
+          if (!compMetrics) return c
+          const updates = {}
+          const latestLatency = compMetrics.latency_ms?.slice(-1)[0]
+          const latestTps = compMetrics.throughput_rps?.slice(-1)[0]
+          const latestCpu = compMetrics.cpu_percent?.slice(-1)[0]
+          if (latestLatency) updates.latency = `${Math.round(latestLatency.value)}ms`
+          if (latestTps) updates.tps = `${Math.round(latestTps.value)} req/s`
+          if (latestCpu) updates.cpu = `${Math.round(latestCpu.value)}%`
+          return { ...c, ...updates }
+        }))
+      })
+
     realtimeChannel.current = channel
     alertChannel.current = aChannel
+    metricsChannel.current = mChannel
 
     return () => {
       if (realtimeChannel.current) {
@@ -180,6 +259,10 @@ export default function WorkflowDashboard() {
       if (alertChannel.current) {
         supabase.removeChannel(alertChannel.current)
         alertChannel.current = null
+      }
+      if (metricsChannel.current) {
+        supabase.removeChannel(metricsChannel.current)
+        metricsChannel.current = null
       }
     }
   }, [activeWorkflowId])
@@ -717,6 +800,7 @@ export default function WorkflowDashboard() {
         {selectedNode && (
           <NodeDetailPanel
             node={selectedNode}
+            metricsData={metricsData[selectedNodeId] || null}
             onClose={() => setSelectedNodeId(null)}
             onRestart={restartService}
             onPause={pauseService}
