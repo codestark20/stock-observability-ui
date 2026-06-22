@@ -851,7 +851,7 @@ export default function WorkflowDashboard() {
         {/* Right Panel */}
         {selectedNodeId && (
           <NodeDetailPanel 
-            node={nodes.find(n => n.id === selectedNodeId)} 
+            node={selectedNode}
             metricsData={metricsData[selectedNodeId] || {}}
             logsData={logsData[selectedNodeId] || []}
             activeTraceId={activeTraceId}
