@@ -1392,20 +1392,22 @@ body {
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border-subtle);
   flex-shrink: 0;
+  flex-wrap: wrap;
   gap: 16px;
 }
 
 .builder-toolbar-left {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
-  flex: 1;
-  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .builder-toolbar-right {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   flex-shrink: 0;
 }
