@@ -61,7 +61,7 @@ const tracePayload = {
         {
           // A completely new, undiscovered child span calling "inventory-service"
           traceId: commonTraceId,
-          spanId: crypto.randomUUID().replace(/-/g, '').slice(0, 16),
+          spanId: inventorySpanId,
           parentSpanId: parentSpanId,
           name: "POST /api/inventory/check",
           kind: 1,
@@ -135,6 +135,8 @@ const logsPayload = {
         timeUnixNano: String(Date.now() * 1000000),
         severityText: severity,
         body: { stringValue: message },
+        traceId: commonTraceId,
+        spanId: parentSpanId,
         attributes: [
           { key: "workflow.id", value: { stringValue: workflowId } },
           { key: "component.id", value: { stringValue: componentId } }

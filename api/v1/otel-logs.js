@@ -57,6 +57,7 @@ export default async function handler(req, res) {
             workflow_id: workflowId,
             component_id: componentId,
             trace_id: logRecord.traceId || null,
+            span_id: logRecord.spanId || null,
             severity_text: severityText,
             body: body,
             attributes: attributesMap,
