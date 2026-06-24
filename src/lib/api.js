@@ -44,7 +44,7 @@ export async function deleteWorkflowAPI(id) {
 }
 
 export async function duplicateWorkflowAPI(id) {
-  return request(`/workflows/${id}/duplicate`, { method: 'POST' })
+  return request(`/workflows/${id}`, { method: 'POST' })
 }
 
 // ── Events & Traces ──────────────────────────────────────

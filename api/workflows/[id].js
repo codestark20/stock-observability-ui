@@ -62,6 +62,39 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: true, id })
     }
 
+    if (req.method === 'POST') {
+      const { data: original, error: fetchError } = await supabase
+        .from('workflows')
+        .select('*')
+        .eq('id', id)
+        .single()
+      if (fetchError) throw fetchError
+      if (!original) return res.status(404).json({ error: 'Workflow not found' })
+
+      const randomSuffix = Math.random().toString(36).substring(2, 8)
+      const newId = `wf_${Date.now()}_${randomSuffix}`
+      const now = new Date().toISOString()
+
+      const { data: duplicate, error: insertError } = await supabase
+        .from('workflows')
+        .insert({
+          id: newId,
+          name: `${original.name} (Copy)`,
+          common_link: original.common_link,
+          components: original.components,
+          nodes: original.nodes,
+          edges: original.edges,
+          created_at: now,
+          updated_at: now,
+        })
+        .select()
+        .single()
+
+      if (insertError) throw insertError
+      const { common_link, ...rest } = duplicate
+      return res.status(201).json({ ...rest, commonLink: common_link })
+    }
+
     return res.status(405).json({ error: `Method ${req.method} not allowed` })
   } catch (err) {
     console.error(`Error in /api/workflows/${id}:`, err)
