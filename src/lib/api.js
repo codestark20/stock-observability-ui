@@ -66,6 +66,7 @@ export async function ingestEvent(eventData) {
 }
 
 export async function fetchFunnel(workflowId, since = null) {
-  const params = since ? `?since=${encodeURIComponent(since)}` : ''
-  return request(`/workflows/${workflowId}/funnel${params}`)
+  const params = since ? `&since=${encodeURIComponent(since)}` : ''
+  return request(`/workflows/${workflowId}/analytics?type=funnel${params}`)
 }
+
