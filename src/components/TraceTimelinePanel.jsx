@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 
-export default function TraceTimelinePanel({ traceId, logs, onClose }) {
+export default function TraceTimelinePanel({ traceId, logs, onClose, onSpanClick, activeSpanId }) {
   const [filterStatus, setFilterStatus] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
 
@@ -70,6 +70,20 @@ export default function TraceTimelinePanel({ traceId, logs, onClose }) {
             }}
           />
         </div>
+
+        {/* Active span indicator */}
+        {activeSpanId && onSpanClick && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '8px',
+            padding: '6px 10px',
+            background: 'rgba(56, 189, 248, 0.1)',
+            border: '1px solid rgba(56, 189, 248, 0.3)',
+            borderRadius: '4px',
+            fontSize: '11px', color: '#38bdf8'
+          }}>
+            <span style={{ flex: 1 }}>🔎 Span filter active in Logs tab</span>
+          </div>
+        )}
       </div>
 
       <div className="trace-logs">
@@ -80,40 +94,62 @@ export default function TraceTimelinePanel({ traceId, logs, onClose }) {
           </div>
         )}
         
-        {filteredLogs.map((log, i) => (
-          <div key={i} className={`trace-log-item trace-log-item--${log.status}`}>
-            <div className="trace-log-header">
-               <div className="trace-log-time">{log.time}</div>
-               {log.duration !== undefined && <div className="trace-log-duration">{log.duration}ms</div>}
-            </div>
-            
-            <div className="trace-log-content">
-              <div className="trace-log-node">{log.nodeName}</div>
-              {log.action && (
-                <div className="trace-log-action">
-                  <span className={`method-badge method-${log.method?.toLowerCase() || 'get'}`}>{log.method || 'EXEC'}</span>
-                  <span className="action-path">{log.action}</span>
-                  {log.statusCode && (
-                    <span className={`status-code status-${log.statusCode >= 500 ? 'error' : log.statusCode >= 400 ? 'warn' : 'ok'}`}>
-                      {log.statusCode}
-                    </span>
-                  )}
-                </div>
-              )}
-              <div className="trace-log-msg">{log.message}</div>
+        {filteredLogs.map((log, i) => {
+          const isSelected = activeSpanId && log.spanId && log.spanId === activeSpanId
+          const isClickable = !!onSpanClick && !!log.spanId
+
+          return (
+            <div
+              key={i}
+              className={`trace-log-item trace-log-item--${log.status}`}
+              onClick={isClickable ? () => onSpanClick(log) : undefined}
+              title={isClickable ? 'Click to filter logs by this span' : undefined}
+              style={{
+                cursor: isClickable ? 'pointer' : 'default',
+                outline: isSelected ? '1px solid rgba(56,189,248,0.6)' : 'none',
+                background: isSelected ? 'rgba(56,189,248,0.06)' : undefined,
+                borderRadius: isSelected ? '4px' : undefined,
+                transition: 'background 0.15s, outline 0.15s'
+              }}
+            >
+              <div className="trace-log-header">
+                 <div className="trace-log-time">{log.time}</div>
+                 {log.duration !== undefined && <div className="trace-log-duration">{log.duration}ms</div>}
+                 {isClickable && (
+                   <div style={{ fontSize: '9px', color: isSelected ? '#38bdf8' : 'var(--text-muted)', marginLeft: 'auto' }}>
+                     {isSelected ? '✦ selected' : '⬡ click to filter'}
+                   </div>
+                 )}
+              </div>
               
-              {log.metadata && Object.keys(log.metadata).length > 0 && (
-                <div className="trace-log-metadata">
-                  {Object.entries(log.metadata).map(([k, v]) => (
-                    <div key={k} className="meta-tag">
-                      <span className="meta-key">{k}:</span> <span className="meta-val">{String(v)}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <div className="trace-log-content">
+                <div className="trace-log-node">{log.nodeName}</div>
+                {log.action && (
+                  <div className="trace-log-action">
+                    <span className={`method-badge method-${log.method?.toLowerCase() || 'get'}`}>{log.method || 'EXEC'}</span>
+                    <span className="action-path">{log.action}</span>
+                    {log.statusCode && (
+                      <span className={`status-code status-${log.statusCode >= 500 ? 'error' : log.statusCode >= 400 ? 'warn' : 'ok'}`}>
+                        {log.statusCode}
+                      </span>
+                    )}
+                  </div>
+                )}
+                <div className="trace-log-msg">{log.message}</div>
+                
+                {log.metadata && Object.keys(log.metadata).length > 0 && (
+                  <div className="trace-log-metadata">
+                    {Object.entries(log.metadata).map(([k, v]) => (
+                      <div key={k} className="meta-tag">
+                        <span className="meta-key">{k}:</span> <span className="meta-val">{String(v)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )

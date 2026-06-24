@@ -12,9 +12,10 @@ import NodeDetailPanel from './NodeDetailPanel'
 import SystemHealthPanel from './SystemHealthPanel'
 import IncidentTimeline from './IncidentTimeline'
 import TraceTimelinePanel from './TraceTimelinePanel'
+import FunnelPanel from './FunnelPanel'
 import { useWorkflow } from '../context/WorkflowContext'
 import { supabase, isSupabaseEnabled } from '../lib/supabase'
-import { fetchEntityTrace, fetchWorkflowEvents } from '../lib/api'
+import { fetchEntityTrace, fetchWorkflowEvents, fetchFunnel } from '../lib/api'
 import { FiAlertCircle, FiRefreshCw, FiEdit2, FiLink, FiSearch, FiClipboard, FiActivity } from 'react-icons/fi'
 
 const nodeTypes = { dashboardNode: DashboardNode }
@@ -63,6 +64,10 @@ export default function WorkflowDashboard() {
   const [activeTraceId, setActiveTraceId] = useState(null)
   const [tracePath, setTracePath] = useState([])
   const [traceLogs, setTraceLogs] = useState([])
+  const [activeSpanId, setActiveSpanId] = useState(null) // span-level drill-down
+
+  // Funnel State
+  const [funnelData, setFunnelData] = useState(null) // null = not loaded, [] = no data
 
   // Layout State
   const [isPanelOpen, setIsPanelOpen] = useState(true)
@@ -90,6 +95,8 @@ export default function WorkflowDashboard() {
     setActiveTraceId(null)
     setTracePath([])
     setTraceLogs([])
+    setActiveSpanId(null)
+    setFunnelData(null)
   }, [workflow?.id, workflow?.updatedAt])
 
   // ── Supabase Realtime Subscription ──────────────────────
@@ -298,6 +305,11 @@ export default function WorkflowDashboard() {
     alertChannel.current = aChannel
     metricsChannel.current = mChannel
     logsChannel.current = lChannel
+
+    // Fetch funnel data once on workflow load
+    fetchFunnel(activeWorkflowId)
+      .then(data => setFunnelData(data))
+      .catch(err => console.warn('Funnel data unavailable:', err.message))
 
     return () => {
       if (realtimeChannel.current) {
@@ -512,6 +524,8 @@ export default function WorkflowDashboard() {
     return (workflow.nodes || []).map(n => {
       const comp = runtimeComponents.find(c => c.id === n.id)
       if (!comp) return null
+      // Merge funnel orderCount if available
+      const funnelStage = funnelData?.stages?.find(s => s.component_id === n.id)
       return {
         ...n,
         type: 'dashboardNode',
@@ -527,11 +541,12 @@ export default function WorkflowDashboard() {
           cpu: comp.cpu,
           selected: n.id === selectedNodeId,
           isTraceMode: !!activeTraceId,
-          inTracePath: activeTraceId ? tracePath.includes(n.id) : false
+          inTracePath: activeTraceId ? tracePath.includes(n.id) : false,
+          orderCount: funnelStage?.order_count ?? null
         }
       }
     }).filter(Boolean)
-  }, [workflow, runtimeComponents, selectedNodeId, activeTraceId, tracePath])
+  }, [workflow, runtimeComponents, selectedNodeId, activeTraceId, tracePath, funnelData])
 
   // Build edges with styling
   const flowEdges = useMemo(() => {
@@ -659,6 +674,7 @@ export default function WorkflowDashboard() {
     setActiveTraceId(null)
     setTracePath([])
     setTraceLogs([])
+    setActiveSpanId(null)
     addEvent('System reset — all services restored to baseline', 'healthy')
   }, [workflow, addEvent])
 
@@ -777,8 +793,15 @@ export default function WorkflowDashboard() {
             {activeTraceId ? (
               <TraceTimelinePanel 
                 traceId={activeTraceId} 
-                logs={traceLogs} 
-                onClose={() => setActiveTraceId(null)} 
+                logs={traceLogs}
+                activeSpanId={activeSpanId}
+                onSpanClick={(span) => {
+                  setActiveSpanId(span.spanId || span.span_id || null)
+                }}
+                onClose={() => {
+                  setActiveTraceId(null)
+                  setActiveSpanId(null)
+                }} 
               />
             ) : (
               <>
@@ -791,6 +814,15 @@ export default function WorkflowDashboard() {
                   <div className="divider" />
                   <div className="section-label">Incident Log</div>
                   <IncidentTimeline events={incidentEvents} />
+                  {funnelData && (
+                    <>
+                      <div className="divider" />
+                      <FunnelPanel
+                        funnelData={funnelData}
+                        workflowComponents={workflow?.components || []}
+                      />
+                    </>
+                  )}
                 </div>
               </>
             )}
@@ -857,6 +889,8 @@ export default function WorkflowDashboard() {
             logsData={logsData[selectedNodeId] || []}
             activeTraceId={activeTraceId}
             traceEvents={traceLogs}
+            activeSpanId={activeSpanId}
+            onClearSpan={() => setActiveSpanId(null)}
             onClose={() => setSelectedNodeId(null)}
             onRestart={restartService}
             onPause={pauseService}

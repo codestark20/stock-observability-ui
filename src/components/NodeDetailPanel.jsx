@@ -16,6 +16,8 @@ export default function NodeDetailPanel({
   logsData,
   activeTraceId,
   traceEvents,
+  activeSpanId,
+  onClearSpan,
   onClose,
   onRestart,
   onPause,
@@ -28,10 +30,15 @@ export default function NodeDetailPanel({
   const { data } = node
   let realLogs = logsData || []
 
-  // If a trace is currently selected globally, only show logs that belong to spans in that trace
-  if (activeTraceId && traceEvents && traceEvents.length > 0) {
-    const validSpanIds = new Set(traceEvents.map(e => e.span_id).filter(Boolean))
-    realLogs = realLogs.filter(log => log.span_id && validSpanIds.has(log.span_id))
+  // Span-level filter: if a specific span is selected in TraceTimelinePanel, show only that span's logs
+  if (activeSpanId) {
+    realLogs = realLogs.filter(log => log.span_id === activeSpanId)
+  } else if (activeTraceId && traceEvents && traceEvents.length > 0) {
+    // Trace-level filter: if a trace is active, only show logs whose span_id appears in the trace events
+    const validSpanIds = new Set(traceEvents.map(e => e.spanId || e.span_id).filter(Boolean))
+    if (validSpanIds.size > 0) {
+      realLogs = realLogs.filter(log => log.span_id && validSpanIds.has(log.span_id))
+    }
   }
 
   // Use real metrics if available, otherwise empty
@@ -163,6 +170,46 @@ export default function NodeDetailPanel({
         {/* Logs Tab */}
         {activeTab === 'logs' && (
           <div style={{ animation: 'fadeIn 0.3s ease-out' }}>
+
+            {/* Span correlation banner — shown when a specific span is selected */}
+            {activeSpanId && (
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '7px 10px',
+                marginBottom: '10px',
+                background: 'rgba(56, 189, 248, 0.08)',
+                border: '1px solid rgba(56, 189, 248, 0.25)',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: '11px'
+              }}>
+                <span style={{ color: '#38bdf8', fontWeight: 600 }}>
+                  🔎 Showing logs for selected span
+                </span>
+                <button
+                  className="btn btn--ghost btn--sm"
+                  style={{ fontSize: '10px', padding: '3px 8px', color: '#38bdf8', borderColor: 'rgba(56,189,248,0.3)' }}
+                  onClick={onClearSpan}
+                >
+                  ← Live
+                </button>
+              </div>
+            )}
+
+            {/* Trace-level filter indicator */}
+            {!activeSpanId && activeTraceId && (
+              <div style={{
+                padding: '6px 10px',
+                marginBottom: '10px',
+                background: 'rgba(251, 191, 36, 0.06)',
+                border: '1px solid rgba(251, 191, 36, 0.2)',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: '10px',
+                color: '#fbbf24'
+              }}>
+                ⬡ Trace mode — click a span in the left panel to filter further
+              </div>
+            )}
+
             {realLogs.length === 0 ? (
               <div style={{ 
                 padding: '24px', 
@@ -172,7 +219,11 @@ export default function NodeDetailPanel({
                 border: '1px dashed var(--border-default)',
                 borderRadius: 'var(--radius-sm)'
               }}>
-                No real logs collected yet. Send OTel Logs to see them here.
+                {activeSpanId
+                  ? 'No logs found for this span. The span may not have emitted any logs.'
+                  : activeTraceId
+                  ? 'No correlated logs for this trace. Click a span in the left panel to filter.'
+                  : 'No real logs collected yet. Send OTel Logs to see them here.'}
               </div>
             ) : (
               realLogs.map((log) => {
@@ -183,6 +234,7 @@ export default function NodeDetailPanel({
                   <div key={log.id} className={`log-entry log-entry--${typeClass}`}>
                     <span style={{ opacity: 0.7, marginRight: '8px', fontSize: '10px' }}>[{time}]</span>
                     {log.body}
+                    {log.span_id && <span style={{ float: 'right', fontSize: '9px', opacity: 0.4, fontFamily: 'var(--font-mono)' }}>{log.span_id.slice(0, 8)}</span>}
                   </div>
                 )
               })

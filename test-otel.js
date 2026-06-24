@@ -1,186 +1,205 @@
-const workflowId = "wf_1781669736070_wzctdg"; 
-const componentId = "of_checkout";
 const SECRET = "81b78b548e3fb0c466fa087d343d0b3f8efbaa86c49e93b3a0f655502cec8445";
 const ENDPOINT = "https://stock-observability-ui.vercel.app/api/v1";
 
-const commonTraceId = crypto.randomUUID().replace(/-/g, '');
-const parentSpanId = crypto.randomUUID().replace(/-/g, '').slice(0, 16);
-const inventorySpanId = crypto.randomUUID().replace(/-/g, '').slice(0, 16);
+// ── All 4 Workflows with their components ──────────────────
+const workflows = [
+  {
+    id: "wf_1781669736070_wzctdg",
+    name: "Order Fulfillment Pipeline",
+    components: [
+      { id: "of_checkout",  service: "checkout-service",  baseLat: 45,  baseTps: 1200, baseCpu: 32 },
+      { id: "of_inventory", service: "inventory-service", baseLat: 75,  baseTps: 800,  baseCpu: 58 },
+      { id: "of_payment",   service: "payment-service",   baseLat: 40,  baseTps: 1500, baseCpu: 25 },
+      { id: "of_shipping",  service: "shipping-service",  baseLat: 60,  baseTps: 600,  baseCpu: 35 },
+      { id: "of_notify",    service: "notify-service",    baseLat: 30,  baseTps: 2000, baseCpu: 48 },
+    ]
+  },
+  {
+    id: "wf_1781669734899_2xclwd",
+    name: "Employee Onboarding",
+    components: [
+      { id: "demo_hr",      service: "hr-portal",         baseLat: 83,  baseTps: 480,  baseCpu: 38 },
+      { id: "demo_google",  service: "google-workspace",  baseLat: 55,  baseTps: 200,  baseCpu: 35 },
+      { id: "demo_company", service: "company-id-system", baseLat: 59,  baseTps: 240,  baseCpu: 39 },
+      { id: "demo_pf",      service: "pf-registration",   baseLat: 51,  baseTps: 160,  baseCpu: 31 },
+      { id: "demo_it",      service: "it-setup",          baseLat: 76,  baseTps: 410,  baseCpu: 31 },
+    ]
+  },
+  {
+    id: "wf_1782107133849_buhikj",
+    name: "User Authentication Flow",
+    components: [
+      { id: "comp_1782107133849_b94ibu", service: "web-frontend",   baseLat: 52, baseTps: 1700, baseCpu: 32 },
+      { id: "comp_1782107133849_t5ucqs", service: "auth-gateway",   baseLat: 27, baseTps: 3200, baseCpu: 62 },
+      { id: "comp_1782107133849_o1fth9", service: "user-database",  baseLat: 34, baseTps: 3900, baseCpu: 69 },
+      { id: "comp_1782107133849_cmojgu", service: "email-service",  baseLat: 31, baseTps: 3600, baseCpu: 66 },
+    ]
+  },
+  {
+    id: "wf_1782107133849_verz2d",
+    name: "Data Ingestion Pipeline",
+    components: [
+      { id: "comp_1782107133849_0c9bq0", service: "data-collector", baseLat: 66, baseTps: 3100, baseCpu: 46 },
+      { id: "comp_1782107133849_4b9kb4", service: "kafka-stream",   baseLat: 27, baseTps: 3200, baseCpu: 62 },
+      { id: "comp_1782107133849_vajugp", service: "spark-processor",baseLat: 45, baseTps: 1000, baseCpu: 25 },
+      { id: "comp_1782107133849_khr92b", service: "snowflake-dw",   baseLat: 24, baseTps: 2900, baseCpu: 59 },
+    ]
+  },
+];
 
-// ── 1. Send a Trace ────────────────────────────────────────
-const tracePayload = {
-  resourceSpans: [{
-    resource: {
-      attributes: [{ key: "service.name", value: { stringValue: "checkout-service" } }]
-    },
-    scopeSpans: [{
-      spans: [
-        {
-          traceId: commonTraceId,
-          spanId: parentSpanId,
-          name: "POST /api/checkout",
-          kind: 1,
-          startTimeUnixNano: String(Date.now() * 1000000),
-          endTimeUnixNano: String((Date.now() + 145) * 1000000),
-          status: { code: 1 },
-          attributes: [
-            { key: "workflow.id", value: { stringValue: workflowId } },
-            { key: "component.id", value: { stringValue: componentId } },
-            { key: "entity.id", value: { stringValue: "ORD-" + Math.floor(Math.random() * 99999) } }
-          ]
-        },
-        {
-          // Child span simulating a call to "payment-service"
-          traceId: commonTraceId,
-          spanId: crypto.randomUUID().replace(/-/g, '').slice(0, 16),
-          parentSpanId: parentSpanId,
-          name: "POST /api/payment",
-          kind: 1,
-          startTimeUnixNano: String((Date.now() + 10) * 1000000),
-          endTimeUnixNano: String((Date.now() + 100) * 1000000),
-          status: { code: 1 },
-          attributes: [
-            { key: "workflow.id", value: { stringValue: workflowId } },
-            { key: "component.id", value: { stringValue: "of_payment" } }
-          ]
-        },
-        {
-          // A completely new, undiscovered child span calling "fraud-service"
-          traceId: commonTraceId,
-          spanId: crypto.randomUUID().replace(/-/g, '').slice(0, 16),
-          parentSpanId: parentSpanId,
-          name: "POST /api/fraud/verify",
-          kind: 1,
-          startTimeUnixNano: String((Date.now() + 15) * 1000000),
-          endTimeUnixNano: String((Date.now() + 50) * 1000000),
-          status: { code: 1 },
-          attributes: [
-            { key: "workflow.id", value: { stringValue: workflowId } },
-            { key: "component.id", value: { stringValue: "of_fraud_check" } }
-          ]
-        },
-        {
-          // A completely new, undiscovered child span calling "inventory-service"
-          traceId: commonTraceId,
-          spanId: inventorySpanId,
-          parentSpanId: parentSpanId,
-          name: "POST /api/inventory/check",
-          kind: 1,
-          startTimeUnixNano: String((Date.now() + 15) * 1000000),
-          endTimeUnixNano: String((Date.now() + 50) * 1000000),
-          status: { code: 1 },
-          attributes: [
-            { key: "workflow.id", value: { stringValue: workflowId } },
-            { key: "component.id", value: { stringValue: "of_inventory" } }
-          ]
-        }
-      ]
-    }]
-  }]
+const logMessages = {
+  INFO:  ["Request processed successfully", "Health check passed", "Cache refreshed", "Connection pool stable", "Batch job completed"],
+  WARN:  ["Response time degraded", "Rate limit approaching", "Retrying failed connection", "Memory usage high", "Queue depth increasing"],
+  ERROR: ["Database connection failed", "Invalid token received", "Timeout waiting for downstream", "Disk space critical", "Circuit breaker tripped"],
 };
 
-// ── 2. Send Metrics ────────────────────────────────────────
-function makeGaugeMetric(name, value) {
+const severities = ["INFO", "INFO", "INFO", "WARN", "ERROR"];
+
+function jitter(base, pct = 0.3) {
+  return base * (1 + (Math.random() * 2 - 1) * pct);
+}
+
+function buildTracePayload(wf) {
+  const commonTraceId = crypto.randomUUID().replace(/-/g, '');
+  const entityId = "ENT-" + Math.floor(Math.random() * 99999);
+  let parentSpanId = null;
+
+  const allSpans = wf.components.map((comp, i) => {
+    const spanId = crypto.randomUUID().replace(/-/g, '').slice(0, 16);
+    const startOffset = i * 50;
+    const duration = 20 + Math.random() * 80;
+
+    const span = {
+      traceId: commonTraceId,
+      spanId,
+      name: `${comp.service}/process`,
+      kind: 1,
+      startTimeUnixNano: String((Date.now() + startOffset) * 1000000),
+      endTimeUnixNano: String((Date.now() + startOffset + duration) * 1000000),
+      status: { code: 1 },
+      attributes: [
+        { key: "workflow.id", value: { stringValue: wf.id } },
+        { key: "component.id", value: { stringValue: comp.id } },
+        { key: "entity.id", value: { stringValue: entityId } },
+      ]
+    };
+    if (parentSpanId) span.parentSpanId = parentSpanId;
+    parentSpanId = spanId;
+    return span;
+  });
+
   return {
-    name,
-    gauge: {
-      dataPoints: [{
-        asDouble: value,
-        timeUnixNano: String(Date.now() * 1000000),
-        attributes: [
-          { key: "workflow.id", value: { stringValue: workflowId } },
-          { key: "component.id", value: { stringValue: componentId } },
-        ]
-      }]
-    }
+    resourceSpans: [{
+      resource: { attributes: [{ key: "service.name", value: { stringValue: wf.name.toLowerCase().replace(/\s+/g, '-') } }] },
+      scopeSpans: [{ spans: allSpans }]
+    }]
   };
 }
 
-// Simulate realistic metric values
-const latency = 20 + Math.random() * 80;       // 20-100ms
-const throughput = 500 + Math.random() * 2000;  // 500-2500 req/s
-const cpu = 15 + Math.random() * 50;            // 15-65%
+function buildMetricsPayload(wf) {
+  const allMetrics = [];
+  for (const comp of wf.components) {
+    for (const m of [
+      { name: "latency_ms",     value: jitter(comp.baseLat) },
+      { name: "throughput_rps", value: jitter(comp.baseTps) },
+      { name: "cpu_percent",    value: jitter(comp.baseCpu) },
+    ]) {
+      allMetrics.push({
+        name: m.name,
+        gauge: {
+          dataPoints: [{
+            asDouble: m.value,
+            timeUnixNano: String(Date.now() * 1000000),
+            attributes: [
+              { key: "workflow.id", value: { stringValue: wf.id } },
+              { key: "component.id", value: { stringValue: comp.id } },
+            ]
+          }]
+        }
+      });
+    }
+  }
+  return {
+    resourceMetrics: [{
+      resource: { attributes: [{ key: "service.name", value: { stringValue: wf.name.toLowerCase().replace(/\s+/g, '-') } }] },
+      scopeMetrics: [{ metrics: allMetrics }]
+    }]
+  };
+}
 
-const metricsPayload = {
-  resourceMetrics: [{
-    resource: {
-      attributes: [{ key: "service.name", value: { stringValue: "checkout-service" } }]
-    },
-    scopeMetrics: [{
-      metrics: [
-        makeGaugeMetric("latency_ms", latency),
-        makeGaugeMetric("throughput_rps", throughput),
-        makeGaugeMetric("cpu_percent", cpu),
+function buildLogsPayload(wf) {
+  const commonTraceId = crypto.randomUUID().replace(/-/g, '');
+  const allLogs = wf.components.map(comp => {
+    const severity = severities[Math.floor(Math.random() * severities.length)];
+    const msgs = logMessages[severity];
+    const message = msgs[Math.floor(Math.random() * msgs.length)];
+    return {
+      timeUnixNano: String(Date.now() * 1000000),
+      severityText: severity,
+      body: { stringValue: `[${comp.service}] ${message}` },
+      traceId: commonTraceId,
+      spanId: crypto.randomUUID().replace(/-/g, '').slice(0, 16),
+      attributes: [
+        { key: "workflow.id", value: { stringValue: wf.id } },
+        { key: "component.id", value: { stringValue: comp.id } },
       ]
+    };
+  });
+  return {
+    resourceLogs: [{
+      resource: { attributes: [{ key: "service.name", value: { stringValue: wf.name.toLowerCase().replace(/\s+/g, '-') } }] },
+      scopeLogs: [{ logRecords: allLogs }]
     }]
-  }]
-};
+  };
+}
 
-// ── 3. Send Logs ───────────────────────────────────────────
-const severities = ["INFO", "WARN", "ERROR"];
-const severity = severities[Math.floor(Math.random() * severities.length)];
-const messages = {
-  INFO: ["User completed checkout successfully", "Payment processing started", "Order validated"],
-  WARN: ["API response time degraded", "Rate limit approaching", "Retrying failed connection"],
-  ERROR: ["Database connection failed", "Invalid payment token", "Timeout waiting for inventory service"]
-};
-const message = messages[severity][Math.floor(Math.random() * 3)];
+// ── Send everything ────────────────────────────────────────
+async function sendBatch(batchNum) {
+  const headers = { 'Content-Type': 'application/json', 'x-otel-secret': SECRET };
+  let totalTraces = 0, totalMetrics = 0, totalLogs = 0;
 
-const logsPayload = {
-  resourceLogs: [{
-    resource: {
-      attributes: [{ key: "service.name", value: { stringValue: "checkout-service" } }]
-    },
-    scopeLogs: [{
-      logRecords: [{
-        timeUnixNano: String(Date.now() * 1000000),
-        severityText: severity,
-        body: { stringValue: message },
-        traceId: commonTraceId,
-        spanId: parentSpanId,
-        attributes: [
-          { key: "workflow.id", value: { stringValue: workflowId } },
-          { key: "component.id", value: { stringValue: componentId } }
-        ]
-      }]
-    }]
-  }]
-};
+  for (const wf of workflows) {
+    const [traceRes, metricsRes, logsRes] = await Promise.all([
+      fetch(`${ENDPOINT}/otel`,         { method: 'POST', headers, body: JSON.stringify(buildTracePayload(wf)) }),
+      fetch(`${ENDPOINT}/otel-metrics`, { method: 'POST', headers, body: JSON.stringify(buildMetricsPayload(wf)) }),
+      fetch(`${ENDPOINT}/otel-logs`,    { method: 'POST', headers, body: JSON.stringify(buildLogsPayload(wf)) }),
+    ]);
 
-// ── Send all three ─────────────────────────────────────────
+    const t = await traceRes.json().catch(() => ({}));
+    const m = await metricsRes.json().catch(() => ({}));
+    const l = await logsRes.json().catch(() => ({}));
+
+    totalTraces += t.inserted || 0;
+    totalMetrics += m.inserted || 0;
+    totalLogs += l.inserted || 0;
+  }
+
+  console.log(`  Batch ${String(batchNum).padStart(2)}: Traces ✅ ${totalTraces} | Metrics ✅ ${totalMetrics} | Logs ✅ ${totalLogs}`);
+}
+
 async function run() {
-  console.log("Sending trace + metrics to dashboard...\n");
+  const BATCHES = 10;
+  const DELAY_MS = 2000;
 
-  // Send trace
-  const traceRes = await fetch(`${ENDPOINT}/otel`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-otel-secret': SECRET },
-    body: JSON.stringify(tracePayload)
-  });
-  const traceResult = await traceRes.text();
-  console.log(`  Trace:   ${traceRes.status === 200 ? '✅' : '❌'} ${traceResult}`);
+  const totalComponents = workflows.reduce((sum, wf) => sum + wf.components.length, 0);
 
-  // Send metrics
-  const metricsRes = await fetch(`${ENDPOINT}/otel-metrics`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-otel-secret': SECRET },
-    body: JSON.stringify(metricsPayload)
-  });
-  const metricsResult = await metricsRes.text();
-  console.log(`  Metrics: ${metricsRes.status === 200 ? '✅' : '❌'} ${metricsResult}`);
+  console.log(`\n🚀 Sending ${BATCHES} batches across ALL ${workflows.length} workflows (${totalComponents} components)\n`);
+  for (const wf of workflows) {
+    console.log(`   📋 ${wf.name} (${wf.components.length} components)`);
+  }
+  console.log('');
 
-  // Send logs
-  const logsRes = await fetch(`${ENDPOINT}/otel-logs`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-otel-secret': SECRET },
-    body: JSON.stringify(logsPayload)
-  });
-  const logsResult = await logsRes.text();
-  console.log(`  Logs:    ${logsRes.status === 200 ? '✅' : '❌'} ${logsResult}`);
+  for (let i = 1; i <= BATCHES; i++) {
+    await sendBatch(i);
+    if (i < BATCHES) await new Promise(r => setTimeout(r, DELAY_MS));
+  }
 
-  console.log(`\n  Latency: ${latency.toFixed(1)}ms | Throughput: ${throughput.toFixed(0)} req/s | CPU: ${cpu.toFixed(1)}%`);
-  console.log(`  Log:     [${severity}] ${message}`);
-  console.log("\nDone! Check your dashboard — the node should update with real chart data and logs.");
+  const expectedTraces = BATCHES * totalComponents;
+  const expectedMetrics = BATCHES * totalComponents * 3;
+  const expectedLogs = BATCHES * totalComponents;
+
+  console.log(`\n✨ Done! Sent ~${expectedTraces} traces, ~${expectedMetrics} metrics, ~${expectedLogs} logs.`);
+  console.log("   Open any workflow and click any component to see charts and logs!\n");
 }
 
 run().catch(err => console.error("Error:", err.message));
