@@ -43,25 +43,28 @@ export default async function handler(req, res) {
       return res.status(200).json({ stages: [] })
     }
 
-    // 2. Build traces query with optional time window
+    // 2. Use the 'logs' table which has trace_id + component_id — this is our entity funnel source.
+    //    Each unique trace_id per component = one order/entity that passed through that stage.
     let query = supabase
-      .from('traces')
-      .select('component_id, entity_id')
+      .from('logs')
+      .select('component_id, trace_id')
       .eq('workflow_id', workflowId)
+      .not('trace_id', 'is', null)
 
     if (since) {
-      query = query.gte('start_time', since)
+      query = query.gte('timestamp', since)
     }
 
-    const { data: traceRows, error: traceError } = await query
+    const { data: logRows, error: logError } = await query
 
-    if (traceError) throw traceError
+    if (logError) throw logError
 
-    // 3. Group: component_id → Set of entity_ids
+    // 3. Group: component_id → Set of trace_ids (each unique trace = one entity passing through)
     const entityMap = {}
-    for (const row of (traceRows || [])) {
+    for (const row of (logRows || [])) {
+      if (!row.trace_id) continue
       if (!entityMap[row.component_id]) entityMap[row.component_id] = new Set()
-      entityMap[row.component_id].add(row.entity_id)
+      entityMap[row.component_id].add(row.trace_id)
     }
 
     // 4. Build ordered stages with order_count and dropped_ids between consecutive stages
@@ -72,12 +75,14 @@ export default async function handler(req, res) {
 
       let dropped_ids = []
 
-      // Find entities that were seen in this stage but NOT in the next stage
+      // Find trace_ids that were seen in this stage but NOT in the next stage
       if (i < orderedComponents.length - 1) {
         const nextComp = orderedComponents[i + 1]
         const entitiesNext = entityMap[nextComp.id] || new Set()
-
-        dropped_ids = [...entitiesHere].filter(id => !entitiesNext.has(id))
+        // Truncate to first 8 chars of trace_id for readability
+        dropped_ids = [...entitiesHere]
+          .filter(id => !entitiesNext.has(id))
+          .map(id => id.slice(0, 16) + '...')
       }
 
       stages.push({

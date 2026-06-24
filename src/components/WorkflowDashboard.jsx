@@ -814,15 +814,11 @@ export default function WorkflowDashboard() {
                   <div className="divider" />
                   <div className="section-label">Incident Log</div>
                   <IncidentTimeline events={incidentEvents} />
-                  {funnelData && (
-                    <>
-                      <div className="divider" />
-                      <FunnelPanel
-                        funnelData={funnelData}
-                        workflowComponents={workflow?.components || []}
-                      />
-                    </>
-                  )}
+                  <div className="divider" />
+                  <FunnelPanel
+                    funnelData={funnelData}
+                    workflowComponents={workflow?.components || []}
+                  />
                 </div>
               </>
             )}

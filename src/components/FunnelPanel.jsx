@@ -74,6 +74,17 @@ export default function FunnelPanel({ funnelData, workflowComponents }) {
 
   const stages = funnelData?.stages || []
 
+  if (funnelData === null) {
+    return (
+      <div>
+        <div className="section-label">Order Funnel</div>
+        <div style={{ fontSize: '11px', color: 'var(--text-muted)', padding: '8px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ animation: 'spin 1s linear infinite', display: 'inline-block' }}>⟳</span> Loading funnel data...
+        </div>
+      </div>
+    )
+  }
+
   if (stages.length === 0) {
     return (
       <div>
