@@ -88,6 +88,76 @@ export default async function handler(req, res) {
     }
   }
 
+  // ── Critical Path mode: ?type=criticalpath ───────────────
+  if (type === 'criticalpath') {
+    try {
+      // Fetch workflow components for names + ordering
+      const { data: workflow, error: wfError } = await supabase
+        .from('workflows')
+        .select('components')
+        .eq('id', workflowId)
+        .single()
+
+      if (wfError) throw wfError
+      if (!workflow) return res.status(404).json({ error: 'Workflow not found' })
+
+      // Query logs for duration data grouped by component
+      const { data: logRows, error: logError } = await supabase
+        .from('logs')
+        .select('component_id, duration_ms')
+        .eq('workflow_id', workflowId)
+        .not('duration_ms', 'is', null)
+
+      if (logError) throw logError
+
+      // Aggregate: sum and count per component
+      const aggregates = {}
+      for (const row of (logRows || [])) {
+        if (!row.component_id || row.duration_ms == null) continue
+        if (!aggregates[row.component_id]) {
+          aggregates[row.component_id] = { total: 0, count: 0 }
+        }
+        aggregates[row.component_id].total += Number(row.duration_ms)
+        aggregates[row.component_id].count += 1
+      }
+
+      // Build component list with avg_duration_ms
+      const compMap = {}
+      for (const comp of (workflow.components || [])) {
+        compMap[comp.id] = comp
+      }
+
+      const components = Object.entries(aggregates).map(([component_id, agg]) => ({
+        component_id,
+        component_name: compMap[component_id]?.name || component_id,
+        role: compMap[component_id]?.role || 'intermediate',
+        avg_duration_ms: Math.round(agg.total / agg.count),
+        sample_count: agg.count
+      }))
+
+      // Sort descending by avg duration
+      components.sort((a, b) => b.avg_duration_ms - a.avg_duration_ms)
+
+      const maxDuration = components[0]?.avg_duration_ms || 1
+      const bottleneck = components[0]?.component_id || null
+
+      // Add pct_of_max for heat bar rendering
+      const ranked = components.map(c => ({
+        ...c,
+        pct_of_max: Math.round((c.avg_duration_ms / maxDuration) * 100)
+      }))
+
+      return res.status(200).json({
+        bottleneck_component_id: bottleneck,
+        components: ranked
+      })
+
+    } catch (err) {
+      console.error('Error in criticalpath:', err)
+      return res.status(500).json({ error: err.message })
+    }
+  }
+
   // ── Default analytics mode ───────────────────────────────
   try {
     const { data, error } = await supabase.rpc('get_workflow_analytics', {

@@ -70,3 +70,8 @@ export async function fetchFunnel(workflowId, since = null) {
   return request(`/workflows/${workflowId}/analytics?type=funnel${params}`)
 }
 
+export async function fetchCriticalPath(workflowId) {
+  return request(`/workflows/${workflowId}/analytics?type=criticalpath`)
+}
+
+

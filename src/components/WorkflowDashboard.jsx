@@ -15,7 +15,7 @@ import TraceTimelinePanel from './TraceTimelinePanel'
 import FunnelPanel from './FunnelPanel'
 import { useWorkflow } from '../context/WorkflowContext'
 import { supabase, isSupabaseEnabled } from '../lib/supabase'
-import { fetchEntityTrace, fetchWorkflowEvents, fetchFunnel } from '../lib/api'
+import { fetchEntityTrace, fetchWorkflowEvents, fetchFunnel, fetchCriticalPath } from '../lib/api'
 import { FiAlertCircle, FiRefreshCw, FiEdit2, FiLink, FiSearch, FiClipboard, FiActivity } from 'react-icons/fi'
 
 const nodeTypes = { dashboardNode: DashboardNode }
@@ -59,15 +59,17 @@ export default function WorkflowDashboard() {
   const [metricsData, setMetricsData] = useState({}) // { [componentId]: { latency_ms: [...], throughput_rps: [...], cpu_percent: [...] } }
   const [logsData, setLogsData] = useState({}) // { [componentId]: [ { timestamp, severity_text, body, ... }, ... ] }
 
+  // -- Features --
+  const [funnelData, setFunnelData] = useState(null)
+  const [criticalPathData, setCriticalPathData] = useState(null)
+  const [showCriticalPath, setShowCriticalPath] = useState(false)
+
   // Trace Mode State
   const [traceIdSearch, setTraceIdSearch] = useState('')
   const [activeTraceId, setActiveTraceId] = useState(null)
   const [tracePath, setTracePath] = useState([])
   const [traceLogs, setTraceLogs] = useState([])
   const [activeSpanId, setActiveSpanId] = useState(null) // span-level drill-down
-
-  // Funnel State
-  const [funnelData, setFunnelData] = useState(null) // null = not loaded, [] = no data
 
   // Layout State
   const [isPanelOpen, setIsPanelOpen] = useState(true)
@@ -311,6 +313,11 @@ export default function WorkflowDashboard() {
       .then(data => setFunnelData(data))
       .catch(err => console.warn('Funnel data unavailable:', err.message))
 
+    // Fetch critical path data once on workflow load
+    fetchCriticalPath(activeWorkflowId)
+      .then(data => setCriticalPathData(data))
+      .catch(err => console.warn('Critical path data unavailable:', err.message))
+
     return () => {
       if (realtimeChannel.current) {
         supabase.removeChannel(realtimeChannel.current)
@@ -526,6 +533,11 @@ export default function WorkflowDashboard() {
       if (!comp) return null
       // Merge funnel orderCount if available
       const funnelStage = funnelData?.stages?.find(s => s.component_id === n.id)
+      
+      const cpComp = criticalPathData?.components?.find(c => c.component_id === n.id)
+      const isBottleneck = showCriticalPath && criticalPathData?.bottleneck_component_id === n.id
+      const isCriticalPath = showCriticalPath && !!cpComp
+
       return {
         ...n,
         type: 'dashboardNode',
@@ -542,11 +554,15 @@ export default function WorkflowDashboard() {
           selected: n.id === selectedNodeId,
           isTraceMode: !!activeTraceId,
           inTracePath: activeTraceId ? tracePath.includes(n.id) : false,
-          orderCount: funnelStage?.order_count ?? null
+          orderCount: funnelStage?.order_count ?? null,
+          isBottleneck,
+          isCriticalPath,
+          avgDurationMs: showCriticalPath ? cpComp?.avg_duration_ms : null,
+          pctOfMax: showCriticalPath ? cpComp?.pct_of_max : null
         }
       }
     }).filter(Boolean)
-  }, [workflow, runtimeComponents, selectedNodeId, activeTraceId, tracePath, funnelData])
+  }, [workflow, runtimeComponents, selectedNodeId, activeTraceId, tracePath, funnelData, criticalPathData, showCriticalPath])
 
   // Build edges with styling
   const flowEdges = useMemo(() => {
@@ -554,20 +570,35 @@ export default function WorkflowDashboard() {
     return (workflow.edges || []).map(e => {
       const sourceComp = runtimeComponents.find(c => c.id === e.source)
       const targetComp = runtimeComponents.find(c => c.id === e.target)
+
       let color = '#00f0ff'
       if (sourceComp?.status === 'critical' || targetComp?.status === 'critical') color = '#f87171'
       else if (sourceComp?.status === 'warning' || targetComp?.status === 'warning') color = '#fbbf24'
 
+      const isBottleneckAdjacent = showCriticalPath && criticalPathData?.bottleneck_component_id && 
+        (e.source === criticalPathData.bottleneck_component_id || e.target === criticalPathData.bottleneck_component_id)
+
+      if (isBottleneckAdjacent) {
+        color = '#f97316' // Orange for critical path
+      }
+
       const direction = e.data?.direction || 'one-way'
       const commonLink = workflow.commonLink || ''
       const inTracePath = activeTraceId ? tracePath.includes(e.source) && tracePath.includes(e.target) : false
-      const opacity = activeTraceId && !inTracePath ? 0.2 : 1
+      
+      let opacity = 1
+      if (activeTraceId && !inTracePath) opacity = 0.2
+      if (showCriticalPath && !isBottleneckAdjacent) opacity = 0.3
+
+      let className = ''
+      if (activeTraceId && inTracePath) className = 'edge-in-trace'
+      if (isBottleneckAdjacent) className = 'edge-critical-path'
 
       const edgeConfig = {
         ...e,
         animated: true,
         type: 'smoothstep',
-        className: activeTraceId && inTracePath ? 'edge-in-trace' : '',
+        className,
         style: { strokeWidth: 5, stroke: color, opacity },
         markerEnd: { type: MarkerType.ArrowClosed, color, width: 28, height: 28, strokeWidth: 1 },
         label: commonLink || undefined,
@@ -581,7 +612,7 @@ export default function WorkflowDashboard() {
       }
       return edgeConfig
     })
-  }, [workflow, runtimeComponents, activeTraceId, tracePath])
+  }, [workflow, runtimeComponents, activeTraceId, tracePath, showCriticalPath, criticalPathData])
 
   // Health panel nodes format
   const healthNodes = useMemo(() =>
@@ -830,11 +861,25 @@ export default function WorkflowDashboard() {
           {/* Canvas Overlays */}
           <div className="canvas-overlays">
             {!isPanelOpen && (
-              <button className="btn btn--ghost btn--sm panel-toggle-btn" onClick={() => setIsPanelOpen(true)}>
+              <button className="btn-secondary" onClick={() => setIsPanelOpen(true)}>
                 ◧ Show Health Panel
               </button>
             )}
             
+            <button 
+              className={`btn-secondary ${showCriticalPath ? 'btn-active' : ''}`}
+              style={{ 
+                borderColor: showCriticalPath ? '#ea580c' : undefined,
+                color: showCriticalPath ? '#f97316' : undefined,
+                background: showCriticalPath ? 'rgba(234, 88, 12, 0.1)' : undefined
+              }}
+              onClick={() => setShowCriticalPath(!showCriticalPath)}
+              disabled={!criticalPathData}
+              title={!criticalPathData ? "Loading critical path data..." : "Toggle Bottleneck Highlights"}
+            >
+              🔥 Critical Path
+            </button>
+
             <form className="trace-search-form canvas-search-form" onSubmit={e => {
                performTrace(e)
                if (!isPanelOpen && traceIdSearch.trim()) setIsPanelOpen(true)

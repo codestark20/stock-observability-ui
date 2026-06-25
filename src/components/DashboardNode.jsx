@@ -44,7 +44,9 @@ export default function DashboardNode({ data }) {
     data.selected ? 'service-node--selected' : '',
     role !== 'intermediate' ? `service-node--${role}` : '',
     data.isTraceMode && !data.inTracePath ? 'service-node--dimmed' : '',
-    data.inTracePath ? 'service-node--in-trace' : ''
+    data.inTracePath ? 'service-node--in-trace' : '',
+    data.isBottleneck ? 'service-node--bottleneck' : '',
+    data.isCriticalPath ? 'service-node--critical-path' : ''
   ].filter(Boolean).join(' ')
 
   return (
@@ -57,9 +59,16 @@ export default function DashboardNode({ data }) {
       )}
 
       {/* Role badge */}
-      {config.badge && (
+      {config.badge && !data.isBottleneck && (
         <div className={`dash-node-badge ${config.badgeClass}`}>
           {config.icon} {config.badge}
+        </div>
+      )}
+      
+      {/* Bottleneck badge (overrides role badge if active) */}
+      {data.isBottleneck && (
+        <div className="dash-node-badge dash-node-badge--bottleneck">
+          🔥 BOTTLENECK
         </div>
       )}
 
@@ -85,6 +94,11 @@ export default function DashboardNode({ data }) {
       {data.linkUsage && (
         <div style={{ fontSize: '10px', color: 'var(--accent-blue)', marginBottom: '8px', opacity: 0.8 }}>
           🔗 {data.linkUsage}
+        </div>
+      )}
+      {data.avgDurationMs && (
+        <div style={{ fontSize: '11px', color: '#f97316', marginBottom: '8px', fontWeight: 600 }}>
+          ⏱ {data.avgDurationMs}ms avg
         </div>
       )}
 

@@ -2176,6 +2176,39 @@ body {
   animation: pulse-border 2s infinite;
 }
 
+.service-node--in-trace {
+  box-shadow: 0 0 0 2px var(--accent-blue), 0 0 20px rgba(0, 240, 255, 0.2);
+  z-index: 10;
+}
+
+/* Critical Path & Bottleneck Styles */
+.service-node--critical-path {
+  box-shadow: 0 0 0 1px #f97316, 0 0 15px rgba(249, 115, 22, 0.15);
+  border-color: #f97316;
+}
+
+@keyframes pulse-bottleneck {
+  0% { box-shadow: 0 0 0 0px rgba(249, 115, 22, 0.6); }
+  100% { box-shadow: 0 0 0 15px rgba(249, 115, 22, 0); }
+}
+
+.service-node--bottleneck {
+  border-color: #ea580c;
+  animation: pulse-bottleneck 2s infinite;
+  z-index: 11;
+}
+
+.dash-node-badge--bottleneck {
+  background: rgba(234, 88, 12, 0.15);
+  border: 1px solid rgba(234, 88, 12, 0.3);
+  color: #fb923c;
+  top: -30px;
+}
+
+.edge-critical-path path {
+  filter: drop-shadow(0 0 4px rgba(249, 115, 22, 0.5));
+}
+
 @keyframes pulse-border {
   0% { box-shadow: 0 0 0 2px var(--accent-blue), 0 0 20px rgba(56, 189, 248, 0.2); }
   50% { box-shadow: 0 0 0 3px #00f0ff, 0 0 40px rgba(0, 240, 255, 0.5); }
