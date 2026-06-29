@@ -56,7 +56,7 @@ export default async function handler(req, res) {
         const endAt = new Date(center.getTime() + Number(windowMs)).toISOString();
 
         const { data, error } = await supabase
-          .from('traces')
+          .from('events')
           .select('*')
           .eq('workflow_id', id)
           .gte('created_at', startAt)
