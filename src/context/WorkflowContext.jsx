@@ -57,7 +57,19 @@ export function WorkflowProvider({ children }) {
   const [editingWorkflowId, setEditingWorkflowId] = useState(null)
   const [isOnline, setIsOnline] = useState(true) // API connectivity
   const [isLoading, setIsLoading] = useState(true)
+  const [replayMode, setReplayMode] = useState(false)
+  const [replayTimestamp, setReplayTimestamp] = useState(null)
   const initialLoadDone = useRef(false)
+
+  const enterReplay = useCallback((timestamp) => {
+    setReplayMode(true)
+    setReplayTimestamp(timestamp)
+  }, [])
+
+  const exitReplay = useCallback(() => {
+    setReplayMode(false)
+    setReplayTimestamp(null)
+  }, [])
 
   // ── Load workflows from API on mount, fallback to localStorage ──
   useEffect(() => {
@@ -322,6 +334,11 @@ export function WorkflowProvider({ children }) {
     editingWorkflowId,
     isOnline,
     isLoading,
+    replayMode,
+    replayTimestamp,
+    setReplayTimestamp,
+    enterReplay,
+    exitReplay,
     createWorkflow,
     deleteWorkflow,
     duplicateWorkflow,

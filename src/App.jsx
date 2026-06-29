@@ -4,6 +4,7 @@ import Sidebar from './components/Sidebar'
 import WorkflowBuilder from './components/WorkflowBuilder'
 import WorkflowDashboard from './components/WorkflowDashboard'
 import ConnectionBanner from './components/ConnectionBanner'
+import ReplayBar from './components/ReplayBar'
 import AnalyticsDashboard from './components/AnalyticsDashboard'
 import { AuthProvider, useAuth } from './auth/AuthProvider'
 import LoginPage from './auth/LoginPage'
@@ -136,7 +137,12 @@ function AppContent() {
       <main className="app-main">
         <ConnectionBanner />
         {activeView === 'builder' && <WorkflowBuilder />}
-        {activeView === 'dashboard' && <WorkflowDashboard />}
+        {activeView === 'dashboard' && (
+          <>
+            <WorkflowDashboard />
+            <ReplayBar workflowId={activeWorkflowId} />
+          </>
+        )}
         {activeView === 'analytics' && <AnalyticsDashboard workflow={workflows.find(w => w.id === activeWorkflowId)} onClose={() => setActiveView('dashboard')} />}
         {activeView === 'welcome' && (
           <div className="welcome-page">

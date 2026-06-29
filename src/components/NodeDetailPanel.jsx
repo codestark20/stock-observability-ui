@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { FiX, FiUser, FiActivity, FiRefreshCw, FiPause, FiZap } from 'react-icons/fi'
 import MetricsPanel from './MetricsPanel'
+import { useReplayData } from '../hooks/useReplayData';
+import { useWorkflow } from '../context/WorkflowContext';
 
 function formatMetricTime(isoString) {
   const d = new Date(isoString)
@@ -23,6 +25,8 @@ export default function NodeDetailPanel({
   onPause,
   onScale
 }) {
+  const { replayMode, replayTimestamp } = useWorkflow();
+  const { snapshot, traces, loading } = useReplayData(activeWorkflowId);
   const [activeTab, setActiveTab] = useState('overview')
 
   if (!node) return null
@@ -41,8 +45,17 @@ export default function NodeDetailPanel({
     }
   }
 
-  // Use real metrics if available, otherwise empty
-  const componentMetrics = metricsData || {}
+  const nodeSnapshot = replayMode
+    ? snapshot?.filter(r => r.component_id === node.id) ?? []
+    : null;
+
+  const componentMetrics = replayMode 
+    ? (nodeSnapshot || []).reduce((acc, row) => {
+        if (!acc[row.metric_name]) acc[row.metric_name] = [];
+        acc[row.metric_name].push({ created_at: row.timestamp, value: row.value });
+        return acc;
+      }, {})
+    : (metricsData || {});
   const latencyData = (componentMetrics.latency_ms || []).map(m => ({ time: formatMetricTime(m.created_at), value: m.value }))
   const tpsData = (componentMetrics.throughput_rps || []).map(m => ({ time: formatMetricTime(m.created_at), value: m.value }))
   const cpuData = (componentMetrics.cpu_percent || []).map(m => ({ time: formatMetricTime(m.created_at), value: m.value }))
@@ -73,6 +86,11 @@ export default function NodeDetailPanel({
             <span className={`status-dot status-dot--${data.status}`} />
             {data.status}
           </span>
+          {replayMode && (
+            <div style={{ fontSize: '12px', color: '#fbbf24', marginLeft: '10px' }}>
+              Replaying {new Date(replayTimestamp).toLocaleString()} ⏱
+            </div>
+          )}
         </div>
         <button className="close-btn" onClick={onClose} title="Close (Esc)"><FiX /></button>
       </div>
