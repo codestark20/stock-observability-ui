@@ -19,8 +19,8 @@ export function useReplayData(workflowId) {
     const params = new URLSearchParams({ timestamp: replayTimestamp });
 
     Promise.all([
-      fetch(`/api/workflows/${workflowId}/snapshot?${params}`).then(r => r.json()),
-      fetch(`/api/workflows/${workflowId}/replay-traces?${params}`).then(r => r.json()),
+      fetch(`/api/workflows/${workflowId}?action=snapshot&${params}`).then(r => r.json()),
+      fetch(`/api/workflows/${workflowId}?action=replay-traces&${params}`).then(r => r.json()),
     ]).then(([snapshotData, tracesData]) => {
       setSnapshot(snapshotData.snapshot);
       setTraces(tracesData.traces);

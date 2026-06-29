@@ -15,6 +15,58 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === 'GET') {
+      if (req.query.action === 'snapshot') {
+        const { timestamp } = req.query;
+        if (!timestamp) return res.status(400).json({ error: 'timestamp is required' });
+
+        const { data: components } = await supabase
+          .from('metrics')
+          .select('component_id')
+          .eq('workflow_id', id)
+          .lte('timestamp', timestamp)
+          .order('timestamp', { ascending: false });
+
+        if (!components) return res.status(200).json({ snapshot: [] });
+
+        const componentIds = [...new Set(components.map(r => r.component_id))];
+
+        const snapshots = await Promise.all(
+          componentIds.map(async (component_id) => {
+            const { data } = await supabase
+              .from('metrics')
+              .select('component_id, metric_name, value, timestamp')
+              .eq('workflow_id', id)
+              .eq('component_id', component_id)
+              .lte('timestamp', timestamp)
+              .order('timestamp', { ascending: false })
+              .limit(20);
+            return data ?? [];
+          })
+        );
+        return res.status(200).json({ snapshot: snapshots.flat() });
+      }
+
+      if (req.query.action === 'replay-traces') {
+        const { timestamp, windowMs = 300000 } = req.query;
+        if (!timestamp) return res.status(400).json({ error: 'timestamp is required' });
+
+        const center = new Date(timestamp);
+        const startAt = new Date(center.getTime() - Number(windowMs)).toISOString();
+        const endAt = new Date(center.getTime() + Number(windowMs)).toISOString();
+
+        const { data, error } = await supabase
+          .from('traces')
+          .select('*')
+          .eq('workflow_id', id)
+          .gte('created_at', startAt)
+          .lte('created_at', endAt)
+          .order('created_at', { ascending: true })
+          .limit(500);
+
+        if (error) return res.status(500).json({ error: error.message });
+        return res.status(200).json({ traces: data, startAt, endAt });
+      }
+
       const { data, error } = await supabase
         .from('workflows')
         .select('*')
