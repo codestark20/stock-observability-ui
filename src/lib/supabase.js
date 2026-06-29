@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { onSocketEvent } from './realtimeStatus'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -19,3 +20,18 @@ export const supabase = supabaseUrl && keyToUse
   : null
 
 export const isSupabaseEnabled = !!supabase
+
+if (supabase) {
+  // Hook into Realtime socket lifecycle
+  const transport = supabase.realtime.conn?.transport;
+  if (transport) {
+    transport.addEventListener('open', () => onSocketEvent('open'));
+    transport.addEventListener('close', () => onSocketEvent('close'));
+    transport.addEventListener('error', () => onSocketEvent('error'));
+  }
+
+  // Also listen to channel-level events
+  supabase.realtime.onOpen(() => onSocketEvent('open'));
+  supabase.realtime.onClose(() => onSocketEvent('close'));
+  supabase.realtime.onError(() => onSocketEvent('error'));
+}

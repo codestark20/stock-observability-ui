@@ -8,6 +8,7 @@ import ReactFlow, {
 import 'reactflow/dist/style.css'
 
 import DashboardNode from './DashboardNode'
+import StaleNodeOverlay from './StaleNodeOverlay'
 import NodeDetailPanel from './NodeDetailPanel'
 import SystemHealthPanel from './SystemHealthPanel'
 import IncidentTimeline from './IncidentTimeline'
@@ -18,7 +19,13 @@ import { supabase, isSupabaseEnabled } from '../lib/supabase'
 import { fetchEntityTrace, fetchWorkflowEvents, fetchFunnel, fetchCriticalPath } from '../lib/api'
 import { FiAlertCircle, FiRefreshCw, FiEdit2, FiLink, FiSearch, FiClipboard, FiActivity } from 'react-icons/fi'
 
-const nodeTypes = { dashboardNode: DashboardNode }
+const WrappedDashboardNode = (props) => (
+  <StaleNodeOverlay>
+    <DashboardNode {...props} />
+  </StaleNodeOverlay>
+);
+
+const nodeTypes = { dashboardNode: WrappedDashboardNode }
 
 function formatTime(date) {
   return date.toLocaleTimeString('en-US', {

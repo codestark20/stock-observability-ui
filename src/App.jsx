@@ -3,6 +3,7 @@ import { WorkflowProvider, useWorkflow } from './context/WorkflowContext'
 import Sidebar from './components/Sidebar'
 import WorkflowBuilder from './components/WorkflowBuilder'
 import WorkflowDashboard from './components/WorkflowDashboard'
+import ConnectionBanner from './components/ConnectionBanner'
 import AnalyticsDashboard from './components/AnalyticsDashboard'
 import { AuthProvider, useAuth } from './auth/AuthProvider'
 import LoginPage from './auth/LoginPage'
@@ -133,6 +134,7 @@ function AppContent() {
       />
 
       <main className="app-main">
+        <ConnectionBanner />
         {activeView === 'builder' && <WorkflowBuilder />}
         {activeView === 'dashboard' && <WorkflowDashboard />}
         {activeView === 'analytics' && <AnalyticsDashboard workflow={workflows.find(w => w.id === activeWorkflowId)} onClose={() => setActiveView('dashboard')} />}
