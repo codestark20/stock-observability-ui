@@ -7,7 +7,9 @@ export default function ConnectionBanner() {
 
   if (status === 'connected') return null;
 
-  const handleRetry = () => supabase.realtime.connect();
+  const handleRetry = () => {
+    try { supabase?.realtime?.connect(); } catch (e) { console.warn('Retry failed:', e); }
+  };
 
   return (
     <div className={`connection-banner connection-banner--${status}`}>

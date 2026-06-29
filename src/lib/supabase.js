@@ -22,16 +22,22 @@ export const supabase = supabaseUrl && keyToUse
 export const isSupabaseEnabled = !!supabase
 
 if (supabase) {
-  // Hook into Realtime socket lifecycle
-  const transport = supabase.realtime.conn?.transport;
-  if (transport) {
-    transport.addEventListener('open', () => onSocketEvent('open'));
-    transport.addEventListener('close', () => onSocketEvent('close'));
-    transport.addEventListener('error', () => onSocketEvent('error'));
-  }
+  try {
+    // Hook into Realtime socket lifecycle
+    const transport = supabase.realtime.conn?.transport;
+    if (transport) {
+      transport.addEventListener('open', () => onSocketEvent('open'));
+      transport.addEventListener('close', () => onSocketEvent('close'));
+      transport.addEventListener('error', () => onSocketEvent('error'));
+    }
 
-  // Also listen to channel-level events
-  supabase.realtime.onOpen(() => onSocketEvent('open'));
-  supabase.realtime.onClose(() => onSocketEvent('close'));
-  supabase.realtime.onError(() => onSocketEvent('error'));
+    // Also listen to channel-level events
+    if (typeof supabase.realtime.onOpen === 'function') {
+      supabase.realtime.onOpen(() => onSocketEvent('open'));
+      supabase.realtime.onClose(() => onSocketEvent('close'));
+      supabase.realtime.onError(() => onSocketEvent('error'));
+    }
+  } catch (e) {
+    console.warn('Could not attach realtime socket hooks:', e);
+  }
 }
