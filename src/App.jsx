@@ -8,9 +8,10 @@ import { AuthProvider, useAuth } from './auth/AuthProvider'
 import LoginPage from './auth/LoginPage'
 
 function AuthGate({ children }) {
-  const { session, loading } = useAuth();
-  if (loading) return <div className="loading" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'var(--text-primary)' }}>Loading...</div>;
-  if (!session) return <LoginPage />;
+  // Auth temporarily disabled — re-enable by uncommenting below
+  // const { session, loading } = useAuth();
+  // if (loading) return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'var(--text-primary)' }}>Loading...</div>;
+  // if (!session) return <LoginPage />;
   return children;
 }
 
