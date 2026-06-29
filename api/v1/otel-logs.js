@@ -6,6 +6,8 @@ const supabase = createClient(
 )
 
 import { resolveTenant } from '../_lib/resolveTenant'
+import { checkRateLimit } from '../_lib/rateLimiter'
+import { getLimits } from '../_lib/rateLimitConfig'
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
@@ -20,6 +22,21 @@ export default async function handler(req, res) {
   const tenant = await resolveTenant(req);
   if (!tenant) {
     return res.status(401).json({ error: 'Invalid ingest secret' })
+  }
+
+  const limits = getLimits(tenant.plan, 'logs');
+  const { allowed, retryAfter } = checkRateLimit(tenant.tenantId, 'logs', limits);
+  
+  if (!allowed) {
+    supabase.from('rate_limit_breaches').insert({
+      tenant_id: tenant.tenantId,
+      endpoint: 'logs',
+      retry_after: retryAfter,
+    }).then(() => {});
+
+    res.setHeader('Retry-After', retryAfter);
+    res.setHeader('X-RateLimit-Limit', limits.burst);
+    return res.status(429).json({ error: 'Rate limit exceeded', retryAfter });
   }
 
   try {

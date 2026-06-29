@@ -11,10 +11,10 @@ export async function resolveTenant(req) {
 
   const { data, error } = await supabase
     .from('tenants')
-    .select('id, owner_id')
+    .select('id, owner_id, plan')
     .eq('ingest_secret', secret)
     .single();
 
   if (error || !data) return null;
-  return { tenantId: data.owner_id };
+  return { tenantId: data.owner_id, plan: data.plan ?? 'starter' };
 }
