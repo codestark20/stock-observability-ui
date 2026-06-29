@@ -4,6 +4,15 @@ import Sidebar from './components/Sidebar'
 import WorkflowBuilder from './components/WorkflowBuilder'
 import WorkflowDashboard from './components/WorkflowDashboard'
 import AnalyticsDashboard from './components/AnalyticsDashboard'
+import { AuthProvider, useAuth } from './auth/AuthProvider'
+import LoginPage from './auth/LoginPage'
+
+function AuthGate({ children }) {
+  const { session, loading } = useAuth();
+  if (loading) return <div className="loading" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'var(--text-primary)' }}>Loading...</div>;
+  if (!session) return <LoginPage />;
+  return children;
+}
 
 function AppContent() {
   const {
@@ -164,8 +173,12 @@ function AppContent() {
 
 export default function App() {
   return (
-    <WorkflowProvider>
-      <AppContent />
-    </WorkflowProvider>
+    <AuthProvider>
+      <AuthGate>
+        <WorkflowProvider>
+          <AppContent />
+        </WorkflowProvider>
+      </AuthGate>
+    </AuthProvider>
   )
 }

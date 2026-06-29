@@ -5,7 +5,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
-const OTEL_SECRET = process.env.OTEL_INGEST_SECRET
+import { resolveTenant } from '../_lib/resolveTenant'
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
@@ -17,8 +17,9 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  if (OTEL_SECRET && req.headers['x-otel-secret'] !== OTEL_SECRET) {
-    return res.status(401).json({ error: 'Unauthorized' })
+  const tenant = await resolveTenant(req);
+  if (!tenant) {
+    return res.status(401).json({ error: 'Invalid ingest secret' })
   }
 
   try {
@@ -54,6 +55,7 @@ export default async function handler(req, res) {
           }
 
           rows.push({
+            tenant_id: tenant.tenantId,
             workflow_id: workflowId,
             component_id: componentId,
             trace_id: logRecord.traceId || null,

@@ -5,7 +5,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
-const OTEL_SECRET = process.env.OTEL_INGEST_SECRET
+import { resolveTenant } from '../_lib/resolveTenant'
 
 // Standard metric name mapping — normalizes common OTel metric names
 const METRIC_NAME_MAP = {
@@ -33,8 +33,9 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  if (OTEL_SECRET && req.headers['x-otel-secret'] !== OTEL_SECRET) {
-    return res.status(401).json({ error: 'Unauthorized' })
+  const tenant = await resolveTenant(req);
+  if (!tenant) {
+    return res.status(401).json({ error: 'Invalid ingest secret' })
   }
 
   try {
@@ -69,6 +70,7 @@ export default async function handler(req, res) {
             const value = dp.asDouble ?? dp.asInt ?? Number(dp.value) ?? 0
 
             rows.push({
+              tenant_id: tenant.tenantId,
               workflow_id: workflowId,
               component_id: componentId,
               metric_name: normalizedName,
@@ -88,6 +90,7 @@ export default async function handler(req, res) {
             const value = dp.count > 0 ? dp.sum / dp.count : 0
 
             rows.push({
+              tenant_id: tenant.tenantId,
               workflow_id: workflowId,
               component_id: componentId,
               metric_name: normalizedName,
