@@ -34,14 +34,14 @@ export default async function handler(req, res) {
           componentIds.map(async (component_id) => {
             const { data } = await supabase
               .from('metrics')
-              .select('component_id, metric_name, value, created_at')
+              .select('component_id, metric_name, value, created_at, trace_id')
               .eq('workflow_id', id)
               .eq('component_id', component_id)
               .lte('created_at', timestamp)
               .order('created_at', { ascending: false })
               .limit(20);
             // map created_at back to timestamp so the frontend doesn't break
-            return (data ?? []).map(r => ({ ...r, timestamp: r.created_at }));
+            return (data ?? []).map(r => ({ ...r, timestamp: r.created_at, trace_id: r.trace_id }));
           })
         );
         return res.status(200).json({ snapshot: snapshots.flat() });

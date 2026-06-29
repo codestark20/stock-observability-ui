@@ -19,6 +19,7 @@ export default function NodeDetailPanel({
   activeTraceId,
   traceEvents,
   activeSpanId,
+  onTraceClick,
   onClearSpan,
   onClose,
   onRestart,
@@ -56,9 +57,9 @@ export default function NodeDetailPanel({
         return acc;
       }, {})
     : (metricsData || {});
-  const latencyData = (componentMetrics.latency_ms || []).map(m => ({ time: formatMetricTime(m.created_at), value: m.value }))
-  const tpsData = (componentMetrics.throughput_rps || []).map(m => ({ time: formatMetricTime(m.created_at), value: m.value }))
-  const cpuData = (componentMetrics.cpu_percent || []).map(m => ({ time: formatMetricTime(m.created_at), value: m.value }))
+  const latencyData = (componentMetrics.latency_ms || []).map(m => ({ time: formatMetricTime(m.created_at), value: m.value, trace_id: m.trace_id }))
+  const tpsData = (componentMetrics.throughput_rps || []).map(m => ({ time: formatMetricTime(m.created_at), value: m.value, trace_id: m.trace_id }))
+  const cpuData = (componentMetrics.cpu_percent || []).map(m => ({ time: formatMetricTime(m.created_at), value: m.value, trace_id: m.trace_id }))
   const rootCause = data.status === 'critical'
     ? `${data.label} experiencing cascading failure — SLA breach`
     : data.status === 'warning'
@@ -161,7 +162,7 @@ export default function NodeDetailPanel({
               </div>
             </div>
 
-            <MetricsPanel latencyData={latencyData} tpsData={tpsData} cpuData={cpuData} />
+            <MetricsPanel latencyData={latencyData} tpsData={tpsData} cpuData={cpuData} onTraceClick={onTraceClick} />
 
             <div className="section-label">Root Cause Analysis</div>
             <div className="glass-card glass-card--compact">

@@ -938,6 +938,7 @@ export default function WorkflowDashboard() {
             activeTraceId={activeTraceId}
             traceEvents={traceLogs}
             activeSpanId={activeSpanId}
+            onTraceClick={setActiveTraceId}
             onClearSpan={() => setActiveSpanId(null)}
             onClose={() => setSelectedNodeId(null)}
             onRestart={restartService}

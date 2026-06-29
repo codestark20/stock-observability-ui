@@ -85,6 +85,7 @@ export default async function handler(req, res) {
             if (!workflowId || !componentId) continue
 
             const value = dp.asDouble ?? dp.asInt ?? Number(dp.value) ?? 0
+            const traceId = dp.exemplars?.[0]?.traceId || dp.exemplars?.[0]?.trace_id || null
 
             rows.push({
               tenant_id: tenant.tenantId,
@@ -92,6 +93,7 @@ export default async function handler(req, res) {
               component_id: componentId,
               metric_name: normalizedName,
               value: Number(value),
+              trace_id: traceId,
             })
           }
 
@@ -105,6 +107,7 @@ export default async function handler(req, res) {
 
             // Use mean value (sum / count) for histograms
             const value = dp.count > 0 ? dp.sum / dp.count : 0
+            const traceId = dp.exemplars?.[0]?.traceId || dp.exemplars?.[0]?.trace_id || null
 
             rows.push({
               tenant_id: tenant.tenantId,
@@ -112,6 +115,7 @@ export default async function handler(req, res) {
               component_id: componentId,
               metric_name: normalizedName,
               value: Number(value),
+              trace_id: traceId,
             })
           }
         }
