@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { FiX, FiUser, FiActivity, FiRefreshCw, FiPause, FiZap } from 'react-icons/fi'
 import MetricsPanel from './MetricsPanel'
 import Flamegraph from './Flamegraph'
@@ -35,7 +35,7 @@ export default function NodeDetailPanel({
   const [isLoadingProfile, setIsLoadingProfile] = useState(false)
 
   // Fetch profiles when the profiling tab is active
-  React.useEffect(() => {
+  useEffect(() => {
     if (activeTab === 'profiling' && node?.id && activeWorkflowId) {
       setIsLoadingProfile(true)
       
