@@ -33,6 +33,42 @@ export default function NodeDetailPanel({
   const [activeTab, setActiveTab] = useState('overview')
   const [profileData, setProfileData] = useState(null)
   const [isLoadingProfile, setIsLoadingProfile] = useState(false)
+  // Self-fetched data — loaded directly when this panel opens
+  const [selfMetrics, setSelfMetrics] = useState({})
+  const [selfLogs, setSelfLogs] = useState([])
+  const [isLoadingData, setIsLoadingData] = useState(false)
+
+  // Fetch metrics and logs for this specific component when it opens
+  useEffect(() => {
+    if (!node?.id || !activeWorkflowId || replayMode) return
+    setIsLoadingData(true)
+    Promise.all([
+      supabase
+        .from('metrics')
+        .select('component_id, metric_name, value, created_at, trace_id')
+        .eq('workflow_id', activeWorkflowId)
+        .eq('component_id', node.id)
+        .order('created_at', { ascending: true })
+        .limit(30),
+      supabase
+        .from('logs')
+        .select('*')
+        .eq('workflow_id', activeWorkflowId)
+        .eq('component_id', node.id)
+        .order('created_at', { ascending: false })
+        .limit(50)
+    ]).then(([{ data: mRows }, { data: lRows }]) => {
+      setIsLoadingData(false)
+      // Group metrics by metric_name
+      const grouped = {}
+      for (const m of (mRows || [])) {
+        if (!grouped[m.metric_name]) grouped[m.metric_name] = []
+        grouped[m.metric_name].push(m)
+      }
+      setSelfMetrics(grouped)
+      setSelfLogs(lRows || [])
+    }).catch(() => setIsLoadingData(false))
+  }, [node?.id, activeWorkflowId, replayMode])
 
   // Fetch profiles when the profiling tab is active
   useEffect(() => {
@@ -66,13 +102,15 @@ export default function NodeDetailPanel({
   if (!node) return null
 
   const { data } = node
-  let realLogs = logsData || []
 
-  // Span-level filter: if a specific span is selected in TraceTimelinePanel, show only that span's logs
+  // In live mode, use self-fetched data. Prop-based data is fallback for backwards compat.
+  const activeLogs = replayMode ? (logsData || []) : (selfLogs.length > 0 ? selfLogs : (logsData || []))
+  let realLogs = activeLogs
+
+  // Span-level filter
   if (activeSpanId) {
     realLogs = realLogs.filter(log => log.span_id === activeSpanId)
   } else if (activeTraceId && traceEvents && traceEvents.length > 0) {
-    // Trace-level filter: if a trace is active, only show logs whose span_id appears in the trace events
     const validSpanIds = new Set(traceEvents.map(e => e.spanId || e.span_id).filter(Boolean))
     if (validSpanIds.size > 0) {
       realLogs = realLogs.filter(log => log.span_id && validSpanIds.has(log.span_id))
@@ -89,10 +127,11 @@ export default function NodeDetailPanel({
         acc[row.metric_name].push({ created_at: row.timestamp, value: row.value });
         return acc;
       }, {})
-    : (metricsData || {});
-  const latencyData = (componentMetrics.latency_ms || []).map(m => ({ time: formatMetricTime(m.created_at), value: m.value, trace_id: m.trace_id }))
-  const tpsData = (componentMetrics.throughput_rps || []).map(m => ({ time: formatMetricTime(m.created_at), value: m.value, trace_id: m.trace_id }))
-  const cpuData = (componentMetrics.cpu_percent || []).map(m => ({ time: formatMetricTime(m.created_at), value: m.value, trace_id: m.trace_id }))
+    : (Object.keys(selfMetrics).length > 0 ? selfMetrics : (metricsData || {}));
+
+  const latencyData = (componentMetrics.latency_ms     || []).map(m => ({ time: formatMetricTime(m.created_at), value: m.value, trace_id: m.trace_id }))
+  const tpsData     = (componentMetrics.throughput_rps || []).map(m => ({ time: formatMetricTime(m.created_at), value: m.value, trace_id: m.trace_id }))
+  const cpuData     = (componentMetrics.cpu_percent    || []).map(m => ({ time: formatMetricTime(m.created_at), value: m.value, trace_id: m.trace_id }))
   const rootCause = data.status === 'critical'
     ? `${data.label} experiencing cascading failure — SLA breach`
     : data.status === 'warning'

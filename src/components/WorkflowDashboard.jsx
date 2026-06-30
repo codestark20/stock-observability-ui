@@ -801,9 +801,6 @@ export default function WorkflowDashboard() {
 
         <div className="header-actions">
 
-          <button className="btn btn--ghost btn--sm" onClick={() => setRefreshTick(t => t + 1)} title="Reload metrics, logs and events from database">
-            <FiRefreshCw style={{ marginRight: '6px' }} /> Refresh Data
-          </button>
           <button className="btn btn--danger btn--sm" onClick={simulateIncident}>
             <FiAlertCircle style={{ marginRight: '6px' }} /> Test Alert
           </button>
