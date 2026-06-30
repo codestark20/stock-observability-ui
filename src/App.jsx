@@ -8,6 +8,7 @@ import ReplayBar from './components/ReplayBar'
 import AnalyticsDashboard from './components/AnalyticsDashboard'
 import { AuthProvider, useAuth } from './auth/AuthProvider'
 import LoginPage from './auth/LoginPage'
+import ErrorBoundary from './components/ErrorBoundary'
 
 function AuthGate({ children }) {
   // Auth temporarily disabled — re-enable by uncommenting below
@@ -136,14 +137,22 @@ function AppContent() {
 
       <main className="app-main">
         <ConnectionBanner />
-        {activeView === 'builder' && <WorkflowBuilder />}
+        {activeView === 'builder' && (
+          <ErrorBoundary onReset={() => setActiveView('welcome')}>
+            <WorkflowBuilder />
+          </ErrorBoundary>
+        )}
         {activeView === 'dashboard' && (
-          <>
+          <ErrorBoundary onReset={() => setActiveView('welcome')}>
             <WorkflowDashboard />
             <ReplayBar workflowId={activeWorkflowId} />
-          </>
+          </ErrorBoundary>
         )}
-        {activeView === 'analytics' && <AnalyticsDashboard workflow={workflows.find(w => w.id === activeWorkflowId)} onClose={() => setActiveView('dashboard')} />}
+        {activeView === 'analytics' && (
+          <ErrorBoundary onReset={() => setActiveView('dashboard')}>
+            <AnalyticsDashboard workflow={workflows.find(w => w.id === activeWorkflowId)} onClose={() => setActiveView('dashboard')} />
+          </ErrorBoundary>
+        )}
         {activeView === 'welcome' && (
           <div className="welcome-page">
             <div className="welcome-icon">⚡</div>

@@ -11,6 +11,7 @@ import DashboardNode from './DashboardNode'
 import StaleNodeOverlay from './StaleNodeOverlay'
 import NodeDetailPanel from './NodeDetailPanel'
 import SystemHealthPanel from './SystemHealthPanel'
+import ErrorBoundary from './ErrorBoundary'
 import IncidentTimeline from './IncidentTimeline'
 import TraceTimelinePanel from './TraceTimelinePanel'
 import FunnelPanel from './FunnelPanel'
@@ -931,21 +932,23 @@ export default function WorkflowDashboard() {
 
         {/* Right Panel */}
         {selectedNodeId && (
-          <NodeDetailPanel 
-            node={selectedNode}
-            activeWorkflowId={activeWorkflowId}
-            metricsData={metricsData[selectedNodeId] || {}}
-            logsData={logsData[selectedNodeId] || []}
-            activeTraceId={activeTraceId}
-            traceEvents={traceLogs}
-            activeSpanId={activeSpanId}
-            onTraceClick={setActiveTraceId}
-            onClearSpan={() => setActiveSpanId(null)}
-            onClose={() => setSelectedNodeId(null)}
-            onRestart={restartService}
-            onPause={pauseService}
-            onScale={scaleService}
-          />
+          <ErrorBoundary onReset={() => setSelectedNodeId(null)}>
+            <NodeDetailPanel 
+              node={selectedNode}
+              activeWorkflowId={activeWorkflowId}
+              metricsData={metricsData[selectedNodeId] || {}}
+              logsData={logsData[selectedNodeId] || []}
+              activeTraceId={activeTraceId}
+              traceEvents={traceLogs}
+              activeSpanId={activeSpanId}
+              onTraceClick={setActiveTraceId}
+              onClearSpan={() => setActiveSpanId(null)}
+              onClose={() => setSelectedNodeId(null)}
+              onRestart={restartService}
+              onPause={pauseService}
+              onScale={scaleService}
+            />
+          </ErrorBoundary>
         )}
       </div>
     </div>
