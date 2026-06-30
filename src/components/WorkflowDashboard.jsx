@@ -65,6 +65,7 @@ export default function WorkflowDashboard() {
   const [currentTime, setCurrentTime] = useState(new Date())
   const [metricsData, setMetricsData] = useState({}) // { [componentId]: { latency_ms: [...], throughput_rps: [...], cpu_percent: [...] } }
   const [logsData, setLogsData] = useState({}) // { [componentId]: [ { timestamp, severity_text, body, ... }, ... ] }
+  const [refreshTick, setRefreshTick] = useState(0)
 
   // -- Features --
   const [funnelData, setFunnelData] = useState(null)
@@ -343,7 +344,7 @@ export default function WorkflowDashboard() {
         logsChannel.current = null
       }
     }
-  }, [activeWorkflowId])
+  }, [activeWorkflowId, refreshTick])
 
   // Handle incoming real events from Supabase Realtime
   const handleRealEvent = useCallback((event) => {
@@ -800,6 +801,9 @@ export default function WorkflowDashboard() {
 
         <div className="header-actions">
 
+          <button className="btn btn--ghost btn--sm" onClick={() => setRefreshTick(t => t + 1)} title="Reload metrics, logs and events from database">
+            <FiRefreshCw style={{ marginRight: '6px' }} /> Refresh Data
+          </button>
           <button className="btn btn--danger btn--sm" onClick={simulateIncident}>
             <FiAlertCircle style={{ marginRight: '6px' }} /> Test Alert
           </button>
