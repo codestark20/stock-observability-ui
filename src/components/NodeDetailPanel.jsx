@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { FiX, FiUser, FiActivity, FiRefreshCw, FiPause, FiZap } from 'react-icons/fi'
 import MetricsPanel from './MetricsPanel'
+import Flamegraph from './Flamegraph'
 import { useReplayData } from '../hooks/useReplayData';
 import { useWorkflow } from '../context/WorkflowContext';
+import { supabase } from '../lib/supabase';
 
 function formatMetricTime(isoString) {
   const d = new Date(isoString)
@@ -29,6 +31,37 @@ export default function NodeDetailPanel({
   const { replayMode, replayTimestamp } = useWorkflow();
   const { snapshot, traces, loading } = useReplayData(activeWorkflowId);
   const [activeTab, setActiveTab] = useState('overview')
+  const [profileData, setProfileData] = useState(null)
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false)
+
+  // Fetch profiles when the profiling tab is active
+  React.useEffect(() => {
+    if (activeTab === 'profiling' && node?.id && activeWorkflowId) {
+      setIsLoadingProfile(true)
+      
+      let query = supabase
+        .from('profiles')
+        .select('profile_data')
+        .eq('workflow_id', activeWorkflowId)
+        .eq('component_id', node.id)
+
+      if (activeTraceId) {
+        query = query.eq('trace_id', activeTraceId)
+      }
+
+      query
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .then(({ data, error }) => {
+          setIsLoadingProfile(false)
+          if (!error && data && data.length > 0) {
+            setProfileData(data[0].profile_data)
+          } else {
+            setProfileData(null)
+          }
+        })
+    }
+  }, [activeTab, node?.id, activeWorkflowId, activeTraceId])
 
   if (!node) return null
 
@@ -110,6 +143,9 @@ export default function NodeDetailPanel({
           </button>
           <button className={`tab ${activeTab === 'integration' ? 'tab--active' : ''}`} onClick={() => setActiveTab('integration')}>
             Integration
+          </button>
+          <button className={`tab ${activeTab === 'profiling' ? 'tab--active' : ''}`} onClick={() => setActiveTab('profiling')}>
+            Profiling
           </button>
         </div>
 
@@ -301,6 +337,31 @@ span.setAttribute('entity.id', '<TRACE_KEY>'); // e.g., Order ID`}
               <div style={{ fontSize: '11px', color: '#38bdf8', fontWeight: 600, marginBottom: '4px' }}>📡 Native OTLP Support</div>
               <div style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
                 Export your traces to our Vercel endpoint via an OTel Collector. Check the <code>examples/</code> folder in the repository for full Node.js and Python setups!
+              </div>
+            </div>
+          </div>
+        )}
+        {/* Profiling Tab */}
+        {activeTab === 'profiling' && (
+          <div style={{ animation: 'fadeIn 0.3s ease-out' }}>
+            <div className="section-label">Continuous Profiling (Flamegraph)</div>
+            <div className="glass-card glass-card--compact" style={{ padding: '16px' }}>
+              {isLoadingProfile ? (
+                <div style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted)' }}>
+                  Loading profile data...
+                </div>
+              ) : (
+                <Flamegraph profileData={profileData} />
+              )}
+            </div>
+            
+            <div className="glass-card glass-card--compact" style={{ marginTop: '12px' }}>
+              <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px' }}>
+                How to send profiling data
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                Send JSON payloads representing call stacks to <code>/api/v1/otel-profiles</code> to render flamegraphs here. 
+                {activeTraceId && <span style={{ color: '#fbbf24', display: 'block', marginTop: '6px' }}>Currently filtering for trace ID: {activeTraceId}</span>}
               </div>
             </div>
           </div>
