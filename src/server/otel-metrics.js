@@ -5,9 +5,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
-import { resolveTenant } from '../_lib/resolveTenant'
-import { checkRateLimit } from '../_lib/rateLimiter'
-import { getLimits } from '../_lib/rateLimitConfig'
+// (Removed phantom imports)
 
 // Standard metric name mapping — normalizes common OTel metric names
 const METRIC_NAME_MAP = {
@@ -28,32 +26,30 @@ const METRIC_NAME_MAP = {
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-otel-secret')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-api-key, x-otel-secret')
   if (req.method === 'OPTIONS') return res.status(200).end()
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const tenant = await resolveTenant(req);
-  if (!tenant) {
-    return res.status(401).json({ error: 'Invalid ingest secret' })
+  const apiKey = req.headers['x-api-key'] || req.headers['x-otel-secret'];
+  if (!apiKey) {
+    return res.status(401).json({ error: 'Missing API Key in headers' });
   }
 
-  const limits = getLimits(tenant.plan, 'metrics');
-  const { allowed, retryAfter } = checkRateLimit(tenant.tenantId, 'metrics', limits);
-  
-  if (!allowed) {
-    supabase.from('rate_limit_breaches').insert({
-      tenant_id: tenant.tenantId,
-      endpoint: 'metrics',
-      retry_after: retryAfter,
-    }).then(() => {});
+  // Authenticate API Key
+  const { data: workflowAuth, error: authError } = await supabase
+    .from('workflows')
+    .select('id')
+    .eq('api_key', apiKey)
+    .single();
 
-    res.setHeader('Retry-After', retryAfter);
-    res.setHeader('X-RateLimit-Limit', limits.burst);
-    return res.status(429).json({ error: 'Rate limit exceeded', retryAfter });
+  if (authError || !workflowAuth) {
+    return res.status(401).json({ error: 'Invalid API Key' });
   }
+
+  const authWorkflowId = workflowAuth.id;
 
   try {
     const { resourceMetrics } = req.body
@@ -79,16 +75,16 @@ export default async function handler(req, res) {
 
           for (const dp of dataPoints) {
             const attrs = dp.attributes || []
-            const workflowId = findAttr(attrs, 'workflow.id') || findAttr(resourceAttrs, 'workflow.id')
+            const workflowId = authWorkflowId;
             const componentId = findAttr(attrs, 'component.id') || findAttr(resourceAttrs, 'component.id')
 
-            if (!workflowId || !componentId) continue
+            if (!componentId) continue
 
             const value = dp.asDouble ?? dp.asInt ?? Number(dp.value) ?? 0
             const traceId = dp.exemplars?.[0]?.traceId || dp.exemplars?.[0]?.trace_id || null
 
             rows.push({
-              tenant_id: tenant.tenantId,
+              // tenant_id removed
               workflow_id: workflowId,
               component_id: componentId,
               metric_name: normalizedName,
@@ -100,17 +96,16 @@ export default async function handler(req, res) {
           // Handle histogram data points
           for (const dp of histogramPoints) {
             const attrs = dp.attributes || []
-            const workflowId = findAttr(attrs, 'workflow.id') || findAttr(resourceAttrs, 'workflow.id')
+            const workflowId = authWorkflowId;
             const componentId = findAttr(attrs, 'component.id') || findAttr(resourceAttrs, 'component.id')
 
-            if (!workflowId || !componentId) continue
+            if (!componentId) continue
 
             // Use mean value (sum / count) for histograms
             const value = dp.count > 0 ? dp.sum / dp.count : 0
             const traceId = dp.exemplars?.[0]?.traceId || dp.exemplars?.[0]?.trace_id || null
 
             rows.push({
-              tenant_id: tenant.tenantId,
               workflow_id: workflowId,
               component_id: componentId,
               metric_name: normalizedName,

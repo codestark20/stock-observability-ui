@@ -18,7 +18,7 @@ import FunnelPanel from './FunnelPanel'
 import { useWorkflow } from '../context/WorkflowContext'
 import { supabase, isSupabaseEnabled } from '../lib/supabase'
 import { fetchEntityTrace, fetchWorkflowEvents, fetchFunnel, fetchCriticalPath } from '../lib/api'
-import { FiAlertCircle, FiRefreshCw, FiEdit2, FiLink, FiSearch, FiClipboard, FiActivity } from 'react-icons/fi'
+import { FiAlertCircle, FiRefreshCw, FiEdit2, FiLink, FiSearch, FiClipboard, FiActivity, FiKey, FiX } from 'react-icons/fi'
 
 const WrappedDashboardNode = (props) => (
   <StaleNodeOverlay>
@@ -82,6 +82,7 @@ export default function WorkflowDashboard() {
 
   // Layout State
   const [isPanelOpen, setIsPanelOpen] = useState(true)
+  const [showApiKeyModal, setShowApiKeyModal] = useState(false)
 
   // Realtime subscription ref
   const realtimeChannel = useRef(null)
@@ -801,7 +802,9 @@ export default function WorkflowDashboard() {
         </div>
 
         <div className="header-actions">
-
+          <button className="btn btn--ghost btn--sm" onClick={() => setShowApiKeyModal(true)}>
+            <FiKey style={{ marginRight: '6px' }} /> API Key
+          </button>
           <button className="btn btn--danger btn--sm" onClick={simulateIncident}>
             <FiAlertCircle style={{ marginRight: '6px' }} /> Test Alert
           </button>
@@ -951,6 +954,52 @@ export default function WorkflowDashboard() {
           </ErrorBoundary>
         )}
       </div>
+
+      {showApiKeyModal && workflow && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.7)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999
+        }}>
+          <div style={{
+            background: 'var(--surface-light)',
+            border: '1px solid var(--border-color)',
+            padding: '2rem',
+            borderRadius: '12px',
+            width: '100%',
+            maxWidth: '500px',
+            color: 'var(--text-primary)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}><FiKey /> Ingestion API Key</h3>
+              <button className="btn btn--icon" onClick={() => setShowApiKeyModal(false)}><FiX size={20}/></button>
+            </div>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
+              Use this API key in your OpenTelemetry Collector configuration or HTTP headers (`x-api-key`) to securely send telemetry data to this workflow.
+            </p>
+            <div style={{
+              background: 'rgba(0,0,0,0.3)',
+              padding: '1rem',
+              borderRadius: '8px',
+              fontFamily: 'monospace',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              border: '1px solid var(--border-color)'
+            }}>
+              <span>{workflow.api_key || 'Generate a new workflow to get an API key'}</span>
+              <button className="btn btn--sm btn--primary" onClick={() => navigator.clipboard.writeText(workflow.api_key)}>
+                <FiClipboard /> Copy
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

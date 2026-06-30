@@ -27,7 +27,7 @@ export default async function handler(req, res) {
   // CORS setup
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-api-key, x-otel-secret')
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end()
@@ -40,6 +40,24 @@ export default async function handler(req, res) {
   if (!supabase) {
     return res.status(500).json({ error: 'Supabase client not configured on server' })
   }
+
+  const apiKey = req.headers['x-api-key'] || req.headers['x-otel-secret'];
+  if (!apiKey) {
+    return res.status(401).json({ error: 'Missing API Key in headers' });
+  }
+
+  // Authenticate API Key
+  const { data: workflowAuth, error: authError } = await supabase
+    .from('workflows')
+    .select('id')
+    .eq('api_key', apiKey)
+    .single();
+
+  if (authError || !workflowAuth) {
+    return res.status(401).json({ error: 'Invalid API Key' });
+  }
+
+  const authWorkflowId = workflowAuth.id;
 
   try {
     const payload = req.body
@@ -55,11 +73,11 @@ export default async function handler(req, res) {
       for (const sp of rp.scopeProfiles || []) {
         for (const profile of sp.profiles || []) {
           const profileAttrs = profile.attributes || []
-          const workflowId = findAttr(profileAttrs, 'workflow.id') || findAttr(resourceAttrs, 'workflow.id')
+          const workflowId = authWorkflowId;
           const componentId = findAttr(profileAttrs, 'component.id') || findAttr(resourceAttrs, 'component.id')
           const traceId = profile.traceId || findAttr(profileAttrs, 'trace.id') || null
 
-          if (!workflowId || !componentId) continue
+          if (!componentId) continue
 
           rows.push({
             tenant_id: tenantId,

@@ -5,39 +5,33 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
-import { resolveTenant } from '../_lib/resolveTenant'
-import { checkRateLimit } from '../_lib/rateLimiter'
-import { getLimits } from '../_lib/rateLimitConfig'
-
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-otel-secret')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-api-key, x-otel-secret')
   if (req.method === 'OPTIONS') return res.status(200).end()
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const tenant = await resolveTenant(req);
-  if (!tenant) {
-    return res.status(401).json({ error: 'Invalid ingest secret' });
+  const apiKey = req.headers['x-api-key'] || req.headers['x-otel-secret'];
+  if (!apiKey) {
+    return res.status(401).json({ error: 'Missing API Key in headers' });
   }
 
-  const limits = getLimits(tenant.plan, 'traces');
-  const { allowed, retryAfter } = checkRateLimit(tenant.tenantId, 'traces', limits);
-  
-  if (!allowed) {
-    supabase.from('rate_limit_breaches').insert({
-      tenant_id: tenant.tenantId,
-      endpoint: 'traces',
-      retry_after: retryAfter,
-    }).then(() => {});
+  // Authenticate API Key
+  const { data: workflowAuth, error: authError } = await supabase
+    .from('workflows')
+    .select('id')
+    .eq('api_key', apiKey)
+    .single();
 
-    res.setHeader('Retry-After', retryAfter);
-    res.setHeader('X-RateLimit-Limit', limits.burst);
-    return res.status(429).json({ error: 'Rate limit exceeded', retryAfter });
+  if (authError || !workflowAuth) {
+    return res.status(401).json({ error: 'Invalid API Key' });
   }
+
+  const authWorkflowId = workflowAuth.id;
 
   const { resourceSpans } = req.body;
   if (!resourceSpans?.length) return res.status(200).json({ ok: true });
@@ -52,7 +46,7 @@ export default async function handler(req, res) {
       for (const span of ss.spans || []) {
         const attrs = span.attributes || [];
 
-        const workflowId  = findAttr(attrs, 'workflow.id');
+        const workflowId  = authWorkflowId;
         const componentId = findAttr(attrs, 'component.id') || serviceName;
         const entityId    = findAttr(attrs, 'entity.id')    || span.traceId;
 
