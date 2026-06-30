@@ -168,12 +168,13 @@ body {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  padding: 0 24px;
-  height: 72px;
+  padding: 12px 24px;
+  min-height: 72px;
+  height: auto;
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border-subtle);
   z-index: 50;
-  gap: 32px;
+  gap: 16px;
 }
 
 .header-brand {
@@ -228,6 +229,8 @@ body {
 .header-actions {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 12px;
   justify-self: end;
 }
