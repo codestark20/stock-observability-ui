@@ -55,7 +55,7 @@ export default function NodeDetailPanel({
         .select('*')
         .eq('workflow_id', activeWorkflowId)
         .eq('component_id', node.id)
-        .order('created_at', { ascending: false })
+        .order('timestamp', { ascending: false })
         .limit(50)
     ]).then(([{ data: mRows }, { data: lRows }]) => {
       setIsLoadingData(false)
