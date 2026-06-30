@@ -117,39 +117,37 @@ async function run() {
         }
       ])
       
-      // 4. Insert Profile (Flamegraph) - specially for the first or critical component
-      if (i === 0 || status === 'critical') {
-        const profileData = {
-          name: `${comp.name}::handleRequest`,
-          value: durationMs * 1000, // microseconds
-          children: [
-            {
-              name: `validatePayload`,
-              value: (durationMs * 1000) * 0.2,
-              children: []
-            },
-            {
-              name: `executeBusinessLogic`,
-              value: (durationMs * 1000) * 0.7,
-              children: [
-                {
-                  name: `db.query`,
-                  value: (durationMs * 1000) * 0.5,
-                  children: []
-                }
-              ]
-            }
-          ]
-        }
-        
-        await supabase.from('profiles').insert({
-          workflow_id: workflow.id,
-          component_id: compId,
-          trace_id: traceId,
-          profile_data: profileData,
-          created_at: eventTime
-        })
+      // 4. Insert Profile (Flamegraph) - for every component
+      const profileData = {
+        name: `${comp.name}::handleRequest`,
+        value: durationMs * 1000, // microseconds
+        children: [
+          {
+            name: `validatePayload`,
+            value: (durationMs * 1000) * 0.2,
+            children: []
+          },
+          {
+            name: `executeBusinessLogic`,
+            value: (durationMs * 1000) * 0.7,
+            children: [
+              {
+                name: `db.query`,
+                value: (durationMs * 1000) * 0.5,
+                children: []
+              }
+            ]
+          }
+        ]
       }
+      
+      await supabase.from('profiles').insert({
+        workflow_id: workflow.id,
+        component_id: compId,
+        trace_id: traceId,
+        profile_data: profileData,
+        created_at: eventTime
+      })
       
       timeOffset += durationMs + 5 // Next span starts slightly after
       parentSpanId = spanId // Chain them together for a linear trace
