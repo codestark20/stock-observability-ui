@@ -18,7 +18,7 @@ import FunnelPanel from './FunnelPanel'
 import { useWorkflow } from '../context/WorkflowContext'
 import { supabase, isSupabaseEnabled } from '../lib/supabase'
 import { fetchEntityTrace, fetchWorkflowEvents, fetchFunnel, fetchCriticalPath } from '../lib/api'
-import { FiAlertCircle, FiRefreshCw, FiEdit2, FiLink, FiSearch, FiClipboard, FiActivity, FiKey, FiX } from 'react-icons/fi'
+import { FiAlertCircle, FiRefreshCw, FiEdit2, FiLink, FiSearch, FiClipboard, FiActivity, FiKey, FiX, FiWifi, FiWifiOff } from 'react-icons/fi'
 
 const WrappedDashboardNode = (props) => (
   <StaleNodeOverlay>
@@ -84,11 +84,17 @@ export default function WorkflowDashboard() {
   const [isPanelOpen, setIsPanelOpen] = useState(true)
   const [showApiKeyModal, setShowApiKeyModal] = useState(false)
 
-  // Realtime subscription ref
+  // WebSocket / Realtime health state
+  const [wsStatus, setWsStatus] = useState('connected') // 'connected' | 'reconnecting' | 'failed'
+  const [wsAttemptCount, setWsAttemptCount] = useState(0)
+  const [wsLastError, setWsLastError] = useState(null)
+
+  // Realtime subscription refs
   const realtimeChannel = useRef(null)
   const alertChannel = useRef(null)
   const metricsChannel = useRef(null)
   const logsChannel = useRef(null)
+  const wsRetryTimeout = useRef(null)
 
   // Initialize runtime state from workflow
   useEffect(() => {
@@ -111,113 +117,81 @@ export default function WorkflowDashboard() {
     setFunnelData(null)
   }, [workflow?.id, workflow?.updatedAt])
 
-  // ── Supabase Realtime Subscription ──────────────────────
-  useEffect(() => {
+  // ── Supabase Realtime Subscription with Reconnection ────
+  const wsAttemptCountRef = useRef(0)
+
+  const teardownChannels = useCallback(() => {
+    if (wsRetryTimeout.current) {
+      clearTimeout(wsRetryTimeout.current)
+      wsRetryTimeout.current = null
+    }
+    if (realtimeChannel.current) { supabase.removeChannel(realtimeChannel.current); realtimeChannel.current = null }
+    if (alertChannel.current) { supabase.removeChannel(alertChannel.current); alertChannel.current = null }
+    if (metricsChannel.current) { supabase.removeChannel(metricsChannel.current); metricsChannel.current = null }
+    if (logsChannel.current) { supabase.removeChannel(logsChannel.current); logsChannel.current = null }
+  }, [])
+
+  const setupChannels = useCallback(() => {
     if (!isSupabaseEnabled || !activeWorkflowId) return
+    teardownChannels()
 
-    // Fetch historical events to pre-fill the log
-    fetchWorkflowEvents(activeWorkflowId)
-      .then(events => {
-        if (!events || events.length === 0) return
-        
-        // Populate initial incident log with last 50 events
-        const historicalLog = events.slice(0, 50).map(event => {
-          const severity = event.status === 'critical' ? 'critical'
-            : event.status === 'warning' ? 'warning'
-            : event.status === 'failed' ? 'critical'
-            : 'healthy'
-          const comp = workflow?.components?.find(c => c.id === event.component_id)
-          const compName = comp?.name || event.component_id || 'Unknown'
-          return {
-            id: String(event.id || Math.random()),
-            time: formatTime(new Date(event.created_at)),
-            message: `<strong>${compName}</strong> — ${event.message || event.status} (${event.entity_id})`,
-            severity
-          }
-        })
-        setIncidentEvents(historicalLog)
+    const handleChannelStatus = (status, err) => {
+      if (status === 'SUBSCRIBED') {
+        wsAttemptCountRef.current = 0
+        setWsAttemptCount(0)
+        setWsStatus('connected')
+        setWsLastError(null)
+      } else if (status === 'CHANNEL_ERROR' || status === 'CLOSED' || status === 'TIMED_OUT') {
+        const errMsg = err?.message || status
+        setWsLastError(errMsg)
 
-        // Pre-fill node statuses based on latest events
-        setRuntimeComponents(prevComps => {
-          const updated = [...prevComps]
-          for (const event of events) {
-            const compIndex = updated.findIndex(c => c.id === event.component_id)
-            if (compIndex !== -1) {
-              // Only update if we haven't seen a newer event for this component
-              // (Assuming events are ordered by created_at desc)
-              updated[compIndex] = {
-                ...updated[compIndex],
-                status: event.status || updated[compIndex].status,
-                latency: event.duration_ms ? `${event.duration_ms}ms` : updated[compIndex].latency
-              }
-            }
-          }
-          return updated
-        })
-      })
-      .catch(err => console.error("Failed to fetch historical events:", err))
+        if (wsAttemptCountRef.current >= 5) {
+          setWsStatus('failed')
+          console.error('[ws] Max reconnection attempts reached. Giving up.')
+          return
+        }
+
+        const attempt = wsAttemptCountRef.current
+        wsAttemptCountRef.current += 1
+        setWsAttemptCount(wsAttemptCountRef.current)
+        setWsStatus('reconnecting')
+
+        const delay = Math.min(1000 * Math.pow(2, attempt), 30000)
+        console.warn(`[ws] Connection ${status}. Attempt ${attempt + 1}/5. Retrying in ${delay}ms…`, errMsg)
+
+        wsRetryTimeout.current = setTimeout(() => {
+          setupChannels()
+        }, delay)
+      }
+    }
 
     // Subscribe to new events for this workflow
     const channel = supabase
       .channel(`events-${activeWorkflowId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'events',
-          filter: `workflow_id=eq.${activeWorkflowId}`
-        },
-        (payload) => {
-          const event = payload.new
-          handleRealEvent(event)
-        }
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'events', filter: `workflow_id=eq.${activeWorkflowId}` },
+        (payload) => handleRealEvent(payload.new)
       )
-      .subscribe()
+      .subscribe((status, err) => handleChannelStatus(status, err))
 
-    // Subscribe to global alerts for this workflow
+    // Subscribe to global alerts
     const aChannel = supabase
       .channel(`alerts-${activeWorkflowId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'alerts',
-          filter: `workflow_id=eq.${activeWorkflowId}`
-        },
-        (payload) => {
-          setGlobalAlert(payload.new)
-        }
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'alerts', filter: `workflow_id=eq.${activeWorkflowId}` },
+        (payload) => setGlobalAlert(payload.new)
       )
       .subscribe()
 
     // Subscribe to real-time metrics
     const mChannel = supabase
       .channel(`metrics-${activeWorkflowId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'metrics',
-          filter: `workflow_id=eq.${activeWorkflowId}`
-        },
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'metrics', filter: `workflow_id=eq.${activeWorkflowId}` },
         (payload) => {
           const m = payload.new
           setMetricsData(prev => {
             const compMetrics = prev[m.component_id] || {}
             const metricList = compMetrics[m.metric_name] || []
-            return {
-              ...prev,
-              [m.component_id]: {
-                ...compMetrics,
-                [m.metric_name]: [...metricList, m].slice(-30) // Keep last 30 data points
-              }
-            }
+            return { ...prev, [m.component_id]: { ...compMetrics, [m.metric_name]: [...metricList, m].slice(-30) } }
           })
-
-          // Update node headline values from real metrics
           setRuntimeComponents(prev => prev.map(c => {
             if (c.id !== m.component_id) return c
             const updates = {}
@@ -230,13 +204,53 @@ export default function WorkflowDashboard() {
       )
       .subscribe()
 
-    // Fetch historical metrics for all components
-    supabase
-      .from('metrics')
-      .select('*')
-      .eq('workflow_id', activeWorkflowId)
-      .order('created_at', { ascending: true })
-      .limit(500)
+    // Subscribe to real-time logs
+    const lChannel = supabase
+      .channel(`logs-${activeWorkflowId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'logs', filter: `workflow_id=eq.${activeWorkflowId}` },
+        (payload) => {
+          const l = payload.new
+          setLogsData(prev => {
+            const compLogs = prev[l.component_id] || []
+            return { ...prev, [l.component_id]: [l, ...compLogs].slice(0, 50) }
+          })
+        }
+      )
+      .subscribe()
+
+    realtimeChannel.current = channel
+    alertChannel.current = aChannel
+    metricsChannel.current = mChannel
+    logsChannel.current = lChannel
+  }, [activeWorkflowId, teardownChannels])
+
+  useEffect(() => {
+    if (!isSupabaseEnabled || !activeWorkflowId) return
+
+    // Fetch historical events
+    fetchWorkflowEvents(activeWorkflowId)
+      .then(events => {
+        if (!events || events.length === 0) return
+        const historicalLog = events.slice(0, 50).map(event => {
+          const severity = event.status === 'critical' ? 'critical' : event.status === 'warning' ? 'warning' : event.status === 'failed' ? 'critical' : 'healthy'
+          const comp = workflow?.components?.find(c => c.id === event.component_id)
+          const compName = comp?.name || event.component_id || 'Unknown'
+          return { id: String(event.id || Math.random()), time: formatTime(new Date(event.created_at)), message: `<strong>${compName}</strong> — ${event.message || event.status} (${event.entity_id})`, severity }
+        })
+        setIncidentEvents(historicalLog)
+        setRuntimeComponents(prevComps => {
+          const updated = [...prevComps]
+          for (const event of events) {
+            const compIndex = updated.findIndex(c => c.id === event.component_id)
+            if (compIndex !== -1) updated[compIndex] = { ...updated[compIndex], status: event.status || updated[compIndex].status, latency: event.duration_ms ? `${event.duration_ms}ms` : updated[compIndex].latency }
+          }
+          return updated
+        })
+      })
+      .catch(err => console.error('Failed to fetch historical events:', err))
+
+    // Fetch historical metrics
+    supabase.from('metrics').select('*').eq('workflow_id', activeWorkflowId).order('created_at', { ascending: true }).limit(500)
       .then(({ data: metricsRows }) => {
         if (!metricsRows || metricsRows.length === 0) return
         const grouped = {}
@@ -245,15 +259,10 @@ export default function WorkflowDashboard() {
           if (!grouped[m.component_id][m.metric_name]) grouped[m.component_id][m.metric_name] = []
           grouped[m.component_id][m.metric_name].push(m)
         }
-        // Keep only last 30 per metric
         for (const compId of Object.keys(grouped)) {
-          for (const metricName of Object.keys(grouped[compId])) {
-            grouped[compId][metricName] = grouped[compId][metricName].slice(-30)
-          }
+          for (const metricName of Object.keys(grouped[compId])) grouped[compId][metricName] = grouped[compId][metricName].slice(-30)
         }
         setMetricsData(grouped)
-
-        // Update headline values from latest metrics
         setRuntimeComponents(prev => prev.map(c => {
           const compMetrics = grouped[c.id]
           if (!compMetrics) return c
@@ -268,37 +277,8 @@ export default function WorkflowDashboard() {
         }))
       })
 
-    // Subscribe to real-time logs
-    const lChannel = supabase
-      .channel(`logs-${activeWorkflowId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'logs',
-          filter: `workflow_id=eq.${activeWorkflowId}`
-        },
-        (payload) => {
-          const l = payload.new
-          setLogsData(prev => {
-            const compLogs = prev[l.component_id] || []
-            return {
-              ...prev,
-              [l.component_id]: [l, ...compLogs].slice(0, 50) // Keep last 50 logs
-            }
-          })
-        }
-      )
-      .subscribe()
-
-    // Fetch historical logs for all components
-    supabase
-      .from('logs')
-      .select('*')
-      .eq('workflow_id', activeWorkflowId)
-      .order('timestamp', { ascending: false })
-      .limit(500)
+    // Fetch historical logs
+    supabase.from('logs').select('*').eq('workflow_id', activeWorkflowId).order('timestamp', { ascending: false }).limit(500)
       .then(({ data: logsRows }) => {
         if (!logsRows || logsRows.length === 0) return
         const grouped = {}
@@ -306,46 +286,18 @@ export default function WorkflowDashboard() {
           if (!grouped[l.component_id]) grouped[l.component_id] = []
           grouped[l.component_id].push(l)
         }
-        // Keep only last 50 per component
-        for (const compId of Object.keys(grouped)) {
-          grouped[compId] = grouped[compId].slice(0, 50)
-        }
+        for (const compId of Object.keys(grouped)) grouped[compId] = grouped[compId].slice(0, 50)
         setLogsData(grouped)
       })
 
-    realtimeChannel.current = channel
-    alertChannel.current = aChannel
-    metricsChannel.current = mChannel
-    logsChannel.current = lChannel
+    // Fetch funnel + critical path
+    fetchFunnel(activeWorkflowId).then(data => setFunnelData(data)).catch(err => console.warn('Funnel unavailable:', err.message))
+    fetchCriticalPath(activeWorkflowId).then(data => setCriticalPathData(data)).catch(err => console.warn('Critical path unavailable:', err.message))
 
-    // Fetch funnel data once on workflow load
-    fetchFunnel(activeWorkflowId)
-      .then(data => setFunnelData(data))
-      .catch(err => console.warn('Funnel data unavailable:', err.message))
+    // Set up realtime channels with reconnection
+    setupChannels()
 
-    // Fetch critical path data once on workflow load
-    fetchCriticalPath(activeWorkflowId)
-      .then(data => setCriticalPathData(data))
-      .catch(err => console.warn('Critical path data unavailable:', err.message))
-
-    return () => {
-      if (realtimeChannel.current) {
-        supabase.removeChannel(realtimeChannel.current)
-        realtimeChannel.current = null
-      }
-      if (alertChannel.current) {
-        supabase.removeChannel(alertChannel.current)
-        alertChannel.current = null
-      }
-      if (metricsChannel.current) {
-        supabase.removeChannel(metricsChannel.current)
-        metricsChannel.current = null
-      }
-      if (logsChannel.current) {
-        supabase.removeChannel(logsChannel.current)
-        logsChannel.current = null
-      }
-    }
+    return () => teardownChannels()
   }, [activeWorkflowId, refreshTick])
 
   // Handle incoming real events from Supabase Realtime
@@ -825,6 +777,32 @@ export default function WorkflowDashboard() {
             <span>CRITICAL INCIDENT — Transaction success rate below SLA threshold</span>
           </div>
           <button className="alert-banner-dismiss" onClick={() => setAlertDismissed(true)}>Dismiss</button>
+        </div>
+      )}
+
+      {/* WebSocket Status Banner */}
+      {wsStatus === 'reconnecting' && (
+        <div className="alert-banner" style={{ background: 'var(--accent-amber, #f59e0b)', color: '#000' }}>
+          <div className="alert-banner-content">
+            <FiWifiOff style={{ marginRight: '8px' }} />
+            <span>Connection lost — reconnecting… (attempt {wsAttemptCount}/5)</span>
+          </div>
+        </div>
+      )}
+      {wsStatus === 'failed' && (
+        <div className="alert-banner" style={{ background: '#ef4444' }}>
+          <div className="alert-banner-content">
+            <FiWifiOff style={{ marginRight: '8px' }} />
+            <span>Live connection failed after 5 attempts. Data may be stale.</span>
+          </div>
+          <button className="alert-banner-dismiss" onClick={() => {
+            wsAttemptCountRef.current = 0
+            setWsAttemptCount(0)
+            setWsStatus('connected')
+            setupChannels()
+          }}>
+            <FiWifi style={{ marginRight: '4px' }} /> Reconnect
+          </button>
         </div>
       )}
 

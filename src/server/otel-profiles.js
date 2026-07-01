@@ -1,4 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
+import { classifySupabaseError } from '../../api/utils/supabaseErrorHandler.js'
+import { writeDeadLetter, hashPayload } from '../../api/utils/deadLetter.js'
 
 export const config = {
   api: {
@@ -93,8 +95,21 @@ export default async function handler(req, res) {
     if (rows.length > 0) {
       const { error } = await supabase.from('profiles').insert(rows)
       if (error) {
-        console.error('Supabase insert error:', error)
-        return res.status(500).json({ error: error.message })
+        const classified = classifySupabaseError(error)
+        console.error('[otel-profiles] Insert failed:', classified.error_class, error.message)
+
+        // Write to dead-letter queue (fire-and-forget)
+        const payloadHash = await hashPayload(JSON.stringify(req.body))
+        writeDeadLetter({
+          route: 'otel-profiles',
+          error_class: classified.error_class,
+          error_message: classified.message,
+          span_count: rows.length,
+          workflow_id: authWorkflowId,
+          payload_hash: payloadHash,
+        })
+
+        return res.status(classified.status).json({ error: classified.message })
       }
     }
 

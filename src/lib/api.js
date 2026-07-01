@@ -1,6 +1,8 @@
 // Centralized API client for backend communication
 // Falls back to localStorage when API is unavailable
 
+import { fetchWithRetry } from '../utils/fetchWithRetry.js'
+
 const API_BASE = '/api'
 
 async function request(path, options = {}) {
@@ -13,13 +15,11 @@ async function request(path, options = {}) {
     config.body = JSON.stringify(options.body)
   }
 
-  const res = await fetch(url, config)
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }))
-    throw new Error(err.error || `API Error: ${res.status}`)
-  }
-  return res.json()
+  const res = await fetchWithRetry(url, config, { maxAttempts: 3, baseDelayMs: 500, maxDelayMs: 4000 })
+  const data = await res.json().catch(() => ({}))
+  return data
 }
+
 
 // ── Workflow CRUD ─────────────────────────────────────────
 
