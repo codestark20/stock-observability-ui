@@ -1,22 +1,27 @@
 import React, { useState } from 'react';
+import { FiZoomOut, FiSearch } from 'react-icons/fi';
 
 // Generates a color based on the function name to keep colors consistent
-function getColor(name) {
+function getColor(name, isHighlighted, isDimmed) {
   let hash = 0;
   for (let i = 0; i < name.length; i++) {
     hash = name.charCodeAt(i) + ((hash << 5) - hash);
   }
   const hue = Math.abs(hash % 360);
-  return `hsl(${hue}, 70%, 40%)`; // Dark mode friendly colors
+  
+  if (isHighlighted) return `hsl(${hue}, 80%, 60%)`; // Brighter for highlighted
+  if (isDimmed) return `hsl(${hue}, 20%, 30%)`; // Dull and dark for dimmed
+  return `hsl(${hue}, 60%, 40%)`; // Normal dark mode friendly colors
 }
 
-function FlamegraphNode({ node, totalValue, level = 0 }) {
-  const [isHovered, setIsHovered] = useState(false);
-  
+function FlamegraphNode({ node, totalValue, level = 0, onHover, onLeave, onClick, searchQuery }) {
   if (!node || typeof node.value === 'undefined') return null;
 
   const widthPercent = (node.value / totalValue) * 100;
-  const isTooSmall = widthPercent < 5;
+  const isTooSmall = widthPercent < 0.5;
+
+  const isMatch = searchQuery && node.name.toLowerCase().includes(searchQuery.toLowerCase());
+  const isDimmed = searchQuery && !isMatch;
 
   return (
     <div style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -25,10 +30,10 @@ function FlamegraphNode({ node, totalValue, level = 0 }) {
         style={{
           width: `${widthPercent}%`,
           height: '24px',
-          backgroundColor: isHovered ? `hsl(${Math.abs(node.name.length * 10 % 360)}, 80%, 50%)` : getColor(node.name),
-          border: '1px solid rgba(0,0,0,0.2)',
+          backgroundColor: getColor(node.name, isMatch, isDimmed),
+          border: isMatch ? '1px solid white' : '1px solid rgba(0,0,0,0.2)',
           borderRadius: '2px',
-          color: 'white',
+          color: isDimmed ? 'rgba(255,255,255,0.4)' : 'white',
           fontSize: '11px',
           display: 'flex',
           alignItems: 'center',
@@ -38,11 +43,15 @@ function FlamegraphNode({ node, totalValue, level = 0 }) {
           whiteSpace: 'nowrap',
           cursor: 'pointer',
           padding: '0 4px',
-          transition: 'background-color 0.1s'
+          transition: 'background-color 0.1s, border 0.1s',
+          boxSizing: 'border-box'
         }}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-        title={`${node.name} (${node.value}ms / ${widthPercent.toFixed(1)}%)`}
+        onMouseMove={(e) => onHover(node, e)}
+        onMouseLeave={onLeave}
+        onClick={(e) => {
+          e.stopPropagation();
+          onClick(node);
+        }}
       >
         {!isTooSmall && node.name}
       </div>
@@ -52,7 +61,15 @@ function FlamegraphNode({ node, totalValue, level = 0 }) {
         <div style={{ display: 'flex', width: `${widthPercent}%` }}>
           {node.children.map((child, idx) => (
             <div key={idx} style={{ width: `${(child.value / node.value) * 100}%` }}>
-              <FlamegraphNode node={child} totalValue={child.value} level={level + 1} />
+              <FlamegraphNode 
+                node={child} 
+                totalValue={child.value} 
+                level={level + 1} 
+                onHover={onHover}
+                onLeave={onLeave}
+                onClick={onClick}
+                searchQuery={searchQuery}
+              />
             </div>
           ))}
         </div>
@@ -62,6 +79,10 @@ function FlamegraphNode({ node, totalValue, level = 0 }) {
 }
 
 export default function Flamegraph({ profileData }) {
+  const [zoomedNode, setZoomedNode] = useState(null);
+  const [tooltip, setTooltip] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+
   if (!profileData || !profileData.value) {
     return (
       <div style={{ 
@@ -78,21 +99,120 @@ export default function Flamegraph({ profileData }) {
     );
   }
 
+  const rootNode = zoomedNode || profileData;
+
+  const handleHover = (node, e) => {
+    // Tooltip offset
+    const x = e.clientX + 10;
+    const y = e.clientY + 10;
+    setTooltip({ node, x, y });
+  };
+
+  const handleLeave = () => {
+    setTooltip(null);
+  };
+
+  const handleClick = (node) => {
+    // Prevent zooming into leaves that don't have children or are tiny, 
+    // actually it's fine to zoom into anything, but reset tooltip.
+    setZoomedNode(node);
+    setTooltip(null);
+  };
+
   return (
-    <div className="flamegraph-container" style={{ 
-      width: '100%', 
-      overflowX: 'auto',
-      padding: '12px',
-      background: 'var(--bg-secondary)',
-      borderRadius: 'var(--radius-md)'
-    }}>
-      <div style={{ minWidth: '400px' }}>
-        <FlamegraphNode node={profileData} totalValue={profileData.value} />
+    <div className="flamegraph-container" style={{ position: 'relative', width: '100%' }}>
+      
+      {/* Toolbar */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <div style={{ position: 'relative' }}>
+            <FiSearch style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+            <input 
+              type="text" 
+              placeholder="Find function..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                background: 'var(--bg-tertiary)',
+                border: '1px solid var(--border-default)',
+                color: 'var(--text-primary)',
+                padding: '4px 8px 4px 28px',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: '12px',
+                outline: 'none',
+                width: '200px'
+              }}
+            />
+          </div>
+          {zoomedNode && (
+            <button 
+              onClick={() => setZoomedNode(null)}
+              style={{
+                background: 'var(--bg-tertiary)',
+                border: '1px solid var(--border-default)',
+                color: 'var(--text-primary)',
+                padding: '4px 12px',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: '12px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+            >
+              <FiZoomOut /> Reset Zoom
+            </button>
+          )}
+        </div>
+        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+          Click to zoom in.
+        </div>
+      </div>
+
+      <div style={{ 
+        width: '100%', 
+        overflowX: 'auto',
+        background: 'var(--bg-secondary)',
+        borderRadius: 'var(--radius-md)',
+        border: '1px solid var(--border-default)'
+      }}>
+        <div style={{ minWidth: '400px' }}>
+          <FlamegraphNode 
+            node={rootNode} 
+            totalValue={rootNode.value} 
+            onHover={handleHover}
+            onLeave={handleLeave}
+            onClick={handleClick}
+            searchQuery={searchQuery}
+          />
+        </div>
       </div>
       
-      <div style={{ marginTop: '16px', fontSize: '12px', color: 'var(--text-secondary)' }}>
-        Hover over blocks to view function details and execution time. Width represents time spent.
-      </div>
+      {/* Floating Tooltip */}
+      {tooltip && (
+        <div style={{
+          position: 'fixed',
+          top: tooltip.y,
+          left: tooltip.x,
+          background: 'var(--bg-popover, #1e293b)',
+          color: 'var(--text-primary, #fff)',
+          border: '1px solid var(--border-default, #334155)',
+          padding: '8px 12px',
+          borderRadius: '4px',
+          fontSize: '12px',
+          zIndex: 1000,
+          pointerEvents: 'none',
+          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+        }}>
+          <div style={{ fontWeight: '600', marginBottom: '4px', color: '#38bdf8' }}>{tooltip.node.name}</div>
+          <div>Execution Time: <strong>{tooltip.node.value}ms</strong></div>
+          {tooltip.node !== profileData && (
+            <div style={{ color: 'var(--text-muted, #94a3b8)', marginTop: '2px' }}>
+              {((tooltip.node.value / profileData.value) * 100).toFixed(1)}% of total execution
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
