@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
-import { classifySupabaseError } from '../../api/utils/supabaseErrorHandler.js'
-import { writeDeadLetter, hashPayload } from '../../api/utils/deadLetter.js'
+import { classifySupabaseError } from '../lib/supabaseErrorHandler.js'
+import { writeDeadLetter, hashPayload } from '../lib/deadLetter.js'
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL,
