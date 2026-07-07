@@ -767,41 +767,44 @@ export default function WorkflowDashboard() {
         </div>
       </header>
 
-      {/* Alert Banner */}
-      {isCritical && !alertDismissed && (
-        <div className="alert-banner">
-          <div className="alert-banner-content">
-            <span>🚨</span>
-            <span>CRITICAL INCIDENT — Transaction success rate below SLA threshold</span>
+      {/* Floating Banner Container to prevent layout shift */}
+      <div style={{ position: 'absolute', top: '70px', left: 0, right: 0, zIndex: 100, display: 'flex', flexDirection: 'column' }}>
+        {/* Alert Banner */}
+        {isCritical && !alertDismissed && (
+          <div className="alert-banner" style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+            <div className="alert-banner-content">
+              <span>🚨</span>
+              <span>CRITICAL INCIDENT — Transaction success rate below SLA threshold</span>
+            </div>
+            <button className="alert-banner-dismiss" onClick={() => setAlertDismissed(true)}>Dismiss</button>
           </div>
-          <button className="alert-banner-dismiss" onClick={() => setAlertDismissed(true)}>Dismiss</button>
-        </div>
-      )}
+        )}
 
-      {/* WebSocket Status Banner */}
-      {wsStatus === 'reconnecting' && (
-        <div className="alert-banner" style={{ background: 'var(--accent-amber, #f59e0b)', color: '#000' }}>
-          <div className="alert-banner-content">
-            <FiWifiOff style={{ marginRight: '8px' }} />
-            <span>Connection lost — reconnecting… (attempt {wsAttemptCount}/5)</span>
+        {/* WebSocket Status Banner */}
+        {wsStatus === 'reconnecting' && (
+          <div className="alert-banner" style={{ background: 'var(--accent-amber, #f59e0b)', color: '#000', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+            <div className="alert-banner-content">
+              <FiWifiOff style={{ marginRight: '8px' }} />
+              <span>Connection lost — reconnecting… (attempt {wsAttemptCount}/5)</span>
+            </div>
           </div>
-        </div>
-      )}
-      {wsStatus === 'failed' && (
-        <div className="alert-banner" style={{ background: '#ef4444' }}>
-          <div className="alert-banner-content">
-            <FiWifiOff style={{ marginRight: '8px' }} />
-            <span>Live connection failed after 5 attempts. Data may be stale.</span>
+        )}
+        {wsStatus === 'failed' && (
+          <div className="alert-banner" style={{ background: 'var(--status-critical)', color: '#fff', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+            <div className="alert-banner-content">
+              <FiWifiOff style={{ marginRight: '8px' }} />
+              <span>Realtime connection failed. Showing stale data.</span>
+            </div>
+            <button className="alert-banner-dismiss" style={{ borderColor: 'rgba(255,255,255,0.4)', color: '#fff' }} onClick={() => {
+              wsAttemptCountRef.current = 0
+              triggerReconnect()
+              setupChannels()
+            }}>
+              Try Again
+            </button>
           </div>
-          <button className="alert-banner-dismiss" onClick={() => {
-            wsAttemptCountRef.current = 0
-            triggerReconnect()
-            setupChannels()
-          }}>
-            <FiWifi style={{ marginRight: '4px' }} /> Reconnect
-          </button>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Main Content */}
       <div className="main-content">
