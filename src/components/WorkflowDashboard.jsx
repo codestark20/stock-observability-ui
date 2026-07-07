@@ -8,7 +8,6 @@ import ReactFlow, {
 import 'reactflow/dist/style.css'
 
 import DashboardNode from './DashboardNode'
-import StaleNodeOverlay from './StaleNodeOverlay'
 import NodeDetailPanel from './NodeDetailPanel'
 import SystemHealthPanel from './SystemHealthPanel'
 import ErrorBoundary from './ErrorBoundary'
@@ -20,13 +19,7 @@ import { supabase, isSupabaseEnabled } from '../lib/supabase'
 import { fetchEntityTrace, fetchWorkflowEvents, fetchFunnel, fetchCriticalPath } from '../lib/api'
 import { FiAlertCircle, FiRefreshCw, FiEdit2, FiLink, FiSearch, FiClipboard, FiActivity, FiKey, FiX, FiWifi, FiWifiOff } from 'react-icons/fi'
 
-const WrappedDashboardNode = (props) => (
-  <StaleNodeOverlay>
-    <DashboardNode {...props} />
-  </StaleNodeOverlay>
-);
-
-const nodeTypes = { dashboardNode: WrappedDashboardNode }
+const nodeTypes = { dashboardNode: DashboardNode }
 
 function formatTime(date) {
   return date.toLocaleTimeString('en-US', {
@@ -63,7 +56,6 @@ export default function WorkflowDashboard() {
   const [incidentEvents, setIncidentEvents] = useState([])
   const [alertDismissed, setAlertDismissed] = useState(false)
   const [globalAlert, setGlobalAlert] = useState(null)
-  const [currentTime, setCurrentTime] = useState(new Date())
   const [metricsData, setMetricsData] = useState({}) // { [componentId]: { latency_ms: [...], throughput_rps: [...], cpu_percent: [...] } }
   const [logsData, setLogsData] = useState({}) // { [componentId]: [ { timestamp, severity_text, body, ... }, ... ] }
   const [refreshTick, setRefreshTick] = useState(0)
@@ -117,11 +109,16 @@ export default function WorkflowDashboard() {
 
   // ── Supabase Realtime Subscription with Reconnection ────
   const wsAttemptCountRef = useRef(0)
+  const wsStatusDebounceRef = useRef(null)
 
   const teardownChannels = useCallback(() => {
     if (wsRetryTimeout.current) {
       clearTimeout(wsRetryTimeout.current)
       wsRetryTimeout.current = null
+    }
+    if (wsStatusDebounceRef.current) {
+      clearTimeout(wsStatusDebounceRef.current)
+      wsStatusDebounceRef.current = null
     }
     if (realtimeChannel.current) { supabase.removeChannel(realtimeChannel.current); realtimeChannel.current = null }
     if (alertChannel.current) { supabase.removeChannel(alertChannel.current); alertChannel.current = null }
@@ -133,26 +130,42 @@ export default function WorkflowDashboard() {
     if (!isSupabaseEnabled || !activeWorkflowId) return
     teardownChannels()
 
+    // Debounced status handler — coalesce rapid connected/reconnecting flaps
+    // into a single React state update to prevent render storms
+    const pendingStatusRef = { current: null }
+    const flushStatus = () => {
+      if (pendingStatusRef.current) {
+        const { wsStatus: s, wsAttemptCount: a, wsLastError: e } = pendingStatusRef.current
+        setWsStatus(s)
+        setWsAttemptCount(a)
+        if (e !== undefined) setWsLastError(e)
+        pendingStatusRef.current = null
+      }
+    }
+
     const handleChannelStatus = (status, err) => {
       if (status === 'SUBSCRIBED') {
         wsAttemptCountRef.current = 0
-        setWsAttemptCount(0)
-        setWsStatus('connected')
-        setWsLastError(null)
+        pendingStatusRef.current = { wsStatus: 'connected', wsAttemptCount: 0, wsLastError: null }
+        // Debounce: wait 300ms before flushing to batch multiple SUBSCRIBED callbacks
+        clearTimeout(wsStatusDebounceRef.current)
+        wsStatusDebounceRef.current = setTimeout(flushStatus, 300)
       } else if (status === 'CHANNEL_ERROR' || status === 'CLOSED' || status === 'TIMED_OUT') {
         const errMsg = err?.message || status
-        setWsLastError(errMsg)
 
         if (wsAttemptCountRef.current >= 5) {
-          setWsStatus('failed')
+          pendingStatusRef.current = { wsStatus: 'failed', wsAttemptCount: wsAttemptCountRef.current, wsLastError: errMsg }
+          clearTimeout(wsStatusDebounceRef.current)
+          flushStatus() // Flush immediately for terminal states
           console.error('[ws] Max reconnection attempts reached. Giving up.')
           return
         }
 
         const attempt = wsAttemptCountRef.current
         wsAttemptCountRef.current += 1
-        setWsAttemptCount(wsAttemptCountRef.current)
-        setWsStatus('reconnecting')
+        pendingStatusRef.current = { wsStatus: 'reconnecting', wsAttemptCount: wsAttemptCountRef.current, wsLastError: errMsg }
+        clearTimeout(wsStatusDebounceRef.current)
+        wsStatusDebounceRef.current = setTimeout(flushStatus, 300)
 
         const delay = Math.min(1000 * Math.pow(2, attempt), 30000)
         console.warn(`[ws] Connection ${status}. Attempt ${attempt + 1}/5. Retrying in ${delay}ms…`, errMsg)
@@ -163,7 +176,8 @@ export default function WorkflowDashboard() {
       }
     }
 
-    // Subscribe to new events for this workflow
+    // Subscribe to new events — ONLY this channel gets the status callback
+    // to prevent 4x status updates from 4 channels
     const channel = supabase
       .channel(`events-${activeWorkflowId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'events', filter: `workflow_id=eq.${activeWorkflowId}` },
@@ -171,7 +185,7 @@ export default function WorkflowDashboard() {
       )
       .subscribe((status, err) => handleChannelStatus(status, err))
 
-    // Subscribe to global alerts
+    // Subscribe to global alerts — no status callback
     const aChannel = supabase
       .channel(`alerts-${activeWorkflowId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'alerts', filter: `workflow_id=eq.${activeWorkflowId}` },
@@ -179,7 +193,7 @@ export default function WorkflowDashboard() {
       )
       .subscribe()
 
-    // Subscribe to real-time metrics
+    // Subscribe to real-time metrics — no status callback
     const mChannel = supabase
       .channel(`metrics-${activeWorkflowId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'metrics', filter: `workflow_id=eq.${activeWorkflowId}` },
@@ -202,7 +216,7 @@ export default function WorkflowDashboard() {
       )
       .subscribe()
 
-    // Subscribe to real-time logs
+    // Subscribe to real-time logs — no status callback
     const lChannel = supabase
       .channel(`logs-${activeWorkflowId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'logs', filter: `workflow_id=eq.${activeWorkflowId}` },
@@ -346,11 +360,8 @@ export default function WorkflowDashboard() {
     }
   }, [runtimeComponents, activeTraceId])
 
-  // Live clock
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000)
-    return () => clearInterval(timer)
-  }, [])
+  // Live clock removed — it caused a full component re-render every second
+  // which cascaded into ReactFlow re-layout and caused visible flickering
 
   const selectedNode = useMemo(() => {
     if (!selectedNodeId || !workflow) return null
