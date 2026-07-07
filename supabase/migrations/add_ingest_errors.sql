@@ -1,4 +1,5 @@
 -- Dead-letter table for failed telemetry ingestion
+-- Updated: adds raw_payload JSONB for debuggability / replay
 CREATE TABLE IF NOT EXISTS ingest_errors (
   id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   created_at     TIMESTAMPTZ DEFAULT now(),
@@ -7,7 +8,8 @@ CREATE TABLE IF NOT EXISTS ingest_errors (
   error_message  TEXT,
   span_count     INTEGER,
   workflow_id    TEXT,
-  payload_hash   TEXT
+  payload_hash   TEXT,
+  raw_payload    JSONB
 );
 
 CREATE INDEX IF NOT EXISTS ingest_errors_created_at_idx ON ingest_errors (created_at);
@@ -27,3 +29,15 @@ $$;
 
 -- Schedule cleanup at 2am daily (requires pg_cron extension)
 SELECT cron.schedule('cleanup-ingest-errors', '0 2 * * *', 'SELECT cleanup_ingest_errors()');
+
+-- ── Migration helper for existing tables ──
+-- If the table already exists without raw_payload, add it:
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'ingest_errors' AND column_name = 'raw_payload'
+  ) THEN
+    ALTER TABLE ingest_errors ADD COLUMN raw_payload JSONB;
+  END IF;
+END $$;

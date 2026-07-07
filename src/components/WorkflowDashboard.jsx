@@ -54,7 +54,7 @@ function generateMetrics(name, sla) {
 }
 
 export default function WorkflowDashboard() {
-  const { activeWorkflowId, getWorkflow, openBuilder, setActiveView } = useWorkflow()
+  const { activeWorkflowId, getWorkflow, openBuilder, setActiveView, wsStatus, setWsStatus, wsAttemptCount, setWsAttemptCount, triggerReconnect, registerReconnectCallback } = useWorkflow()
   const workflow = getWorkflow(activeWorkflowId)
 
   // Runtime State
@@ -84,9 +84,7 @@ export default function WorkflowDashboard() {
   const [isPanelOpen, setIsPanelOpen] = useState(true)
   const [showApiKeyModal, setShowApiKeyModal] = useState(false)
 
-  // WebSocket / Realtime health state
-  const [wsStatus, setWsStatus] = useState('connected') // 'connected' | 'reconnecting' | 'failed'
-  const [wsAttemptCount, setWsAttemptCount] = useState(0)
+  // WebSocket / Realtime health state (wsStatus + wsAttemptCount from context)
   const [wsLastError, setWsLastError] = useState(null)
 
   // Realtime subscription refs
@@ -797,8 +795,7 @@ export default function WorkflowDashboard() {
           </div>
           <button className="alert-banner-dismiss" onClick={() => {
             wsAttemptCountRef.current = 0
-            setWsAttemptCount(0)
-            setWsStatus('connected')
+            triggerReconnect()
             setupChannels()
           }}>
             <FiWifi style={{ marginRight: '4px' }} /> Reconnect

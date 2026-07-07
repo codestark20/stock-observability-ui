@@ -61,6 +61,21 @@ export function WorkflowProvider({ children }) {
   const [replayTimestamp, setReplayTimestamp] = useState(null)
   const initialLoadDone = useRef(false)
 
+  // ── WebSocket connection state (shared across components) ──
+  const [wsStatus, setWsStatus] = useState('connected') // 'connected' | 'reconnecting' | 'failed'
+  const [wsAttemptCount, setWsAttemptCount] = useState(0)
+  const reconnectCallbackRef = useRef(null)
+
+  const registerReconnectCallback = useCallback((cb) => {
+    reconnectCallbackRef.current = cb
+  }, [])
+
+  const triggerReconnect = useCallback(() => {
+    setWsAttemptCount(0)
+    setWsStatus('connected')
+    if (reconnectCallbackRef.current) reconnectCallbackRef.current()
+  }, [])
+
   const enterReplay = useCallback((timestamp) => {
     setReplayMode(true)
     setReplayTimestamp(timestamp)
@@ -352,7 +367,14 @@ export function WorkflowProvider({ children }) {
     updateNodesAndEdges,
     getWorkflow,
     setActiveView,
-    generateMetrics
+    generateMetrics,
+    // WebSocket state
+    wsStatus,
+    setWsStatus,
+    wsAttemptCount,
+    setWsAttemptCount,
+    triggerReconnect,
+    registerReconnectCallback,
   }
 
   return (

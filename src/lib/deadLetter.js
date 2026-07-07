@@ -13,12 +13,22 @@ const supabase = createClient(
  * @param {string} fields.route - The API route that failed (e.g. 'otel-traces')
  * @param {string} fields.error_class - Classified error string
  * @param {string} [fields.error_message] - Safe error message (no PII)
- * @param {number} [fields.span_count] - Number of spans in the failed batch
+ * @param {number} [fields.span_count] - Number of items in the failed batch
  * @param {string} [fields.workflow_id] - Workflow ID if known
  * @param {string} [fields.payload_hash] - SHA-256 hex of the raw payload body
+ * @param {object} [fields.raw_payload] - The original payload (truncated to ~32KB)
  */
 export async function writeDeadLetter(fields) {
   try {
+    // Truncate raw_payload to prevent bloating the DLQ table
+    let rawPayload = fields.raw_payload || null
+    if (rawPayload) {
+      const serialized = JSON.stringify(rawPayload)
+      if (serialized.length > 32768) {
+        rawPayload = { _truncated: true, _size: serialized.length, _preview: serialized.slice(0, 2000) }
+      }
+    }
+
     await supabase.from('ingest_errors').insert({
       route: fields.route || 'unknown',
       error_class: fields.error_class || 'unknown',
@@ -26,6 +36,7 @@ export async function writeDeadLetter(fields) {
       span_count: fields.span_count || null,
       workflow_id: fields.workflow_id || null,
       payload_hash: fields.payload_hash || null,
+      raw_payload: rawPayload,
     })
   } catch (err) {
     // Silently log — a DLQ write failure must never propagate upward
@@ -43,7 +54,7 @@ export async function writeDeadLetter(fields) {
 export async function hashPayload(text) {
   try {
     const encoder = new TextEncoder()
-    const data = encoder.encode(String(text).slice(0, 4096)) // limit to 4KB
+    const data = encoder.encode(String(text).slice(0, 4096)) // limit to 4KB for hashing
     const hashBuffer = await crypto.subtle.digest('SHA-256', data)
     const hashArray = Array.from(new Uint8Array(hashBuffer))
     return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')

@@ -1,41 +1,19 @@
 import { createClient } from '@supabase/supabase-js'
-import { classifySupabaseError } from '../lib/supabaseErrorHandler.js'
-import { writeDeadLetter, hashPayload } from '../lib/deadLetter.js'
+import { batchInsert } from './batchInsert.js'
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
+/**
+ * Logs ingestion handler.
+ * Auth is handled upstream by the catch-all gate — req.authWorkflowId is set.
+ */
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-api-key, x-otel-secret')
-  if (req.method === 'OPTIONS') return res.status(200).end()
-
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' })
-  }
-
-  const apiKey = req.headers['x-api-key'] || req.headers['x-otel-secret'];
-  if (!apiKey) {
-    return res.status(401).json({ error: 'Missing API Key in headers' });
-  }
-
-  // Authenticate API Key
-  const { data: workflowAuth, error: authError } = await supabase
-    .from('workflows')
-    .select('id')
-    .eq('api_key', apiKey)
-    .single();
-
-  if (authError || !workflowAuth) {
-    return res.status(401).json({ error: 'Invalid API Key' });
-  }
-
-  const authWorkflowId = workflowAuth.id;
-
   try {
+    const authWorkflowId = req.authWorkflowId
+
     const { resourceLogs } = req.body
     if (!resourceLogs?.length) return res.status(200).json({ ok: true })
 
@@ -49,14 +27,18 @@ export default async function handler(req, res) {
         for (const logRecord of sl.logRecords || []) {
           const attrs = logRecord.attributes || []
           
-          const workflowId = authWorkflowId;
           const componentId = findAttr(attrs, 'component.id') || findAttr(resourceAttrs, 'component.id') || serviceName
           
           if (!componentId) continue
 
-          const timestamp = logRecord.timeUnixNano 
-            ? new Date(Number(BigInt(logRecord.timeUnixNano) / 1000000n)).toISOString() 
-            : new Date().toISOString()
+          let timestamp
+          try {
+            timestamp = logRecord.timeUnixNano
+              ? new Date(Number(BigInt(logRecord.timeUnixNano) / 1000000n)).toISOString()
+              : new Date().toISOString()
+          } catch {
+            timestamp = new Date().toISOString()
+          }
 
           const body = logRecord.body?.stringValue || JSON.stringify(logRecord.body) || ''
           const severityText = logRecord.severityText || 'INFO'
@@ -68,7 +50,7 @@ export default async function handler(req, res) {
           }
 
           rows.push({
-            workflow_id: workflowId,
+            workflow_id: authWorkflowId,
             component_id: componentId,
             trace_id: logRecord.traceId || null,
             span_id: logRecord.spanId || null,
@@ -81,31 +63,16 @@ export default async function handler(req, res) {
       }
     }
 
-    if (rows.length > 0) {
-      const { error } = await supabase.from('logs').insert(rows)
-      if (error) {
-        const classified = classifySupabaseError(error)
-        console.error('[otel-logs] Insert failed:', classified.error_class, error.message)
+    const result = await batchInsert(supabase, 'logs', rows, {
+      route: 'otel-logs',
+      workflow_id: authWorkflowId,
+      raw_payload: req.body,
+    })
 
-        // Write to dead-letter queue (fire-and-forget)
-        const payloadHash = await hashPayload(JSON.stringify(req.body))
-        writeDeadLetter({
-          route: 'otel-logs',
-          error_class: classified.error_class,
-          error_message: classified.message,
-          span_count: rows.length,
-          workflow_id: authWorkflowId,
-          payload_hash: payloadHash,
-        })
-
-        return res.status(classified.status).json({ error: classified.message })
-      }
-    }
-
-    return res.status(200).json({ ok: true, inserted: rows.length })
+    return res.status(result.status).json(result.body)
   } catch (err) {
-    console.error('Logs ingestion error:', err)
-    return res.status(500).json({ error: err.message })
+    console.error('[otel-logs] Unhandled error:', err)
+    return res.status(500).json({ error: 'Internal logs ingestion error' })
   }
 }
 
