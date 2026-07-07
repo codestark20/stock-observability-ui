@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react'
+import { createContext, useContext, useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import {
   fetchWorkflows,
   createWorkflowAPI,
@@ -342,7 +342,7 @@ export function WorkflowProvider({ children }) {
     return workflows.find(w => w.id === id) || null
   }, [workflows])
 
-  const value = {
+  const value = useMemo(() => ({
     workflows,
     activeWorkflowId,
     activeView,
@@ -368,14 +368,42 @@ export function WorkflowProvider({ children }) {
     getWorkflow,
     setActiveView,
     generateMetrics,
-    // WebSocket state
     wsStatus,
     setWsStatus,
     wsAttemptCount,
     setWsAttemptCount,
     triggerReconnect,
     registerReconnectCallback,
-  }
+  }), [
+    workflows,
+    activeWorkflowId,
+    activeView,
+    editingWorkflowId,
+    isOnline,
+    isLoading,
+    replayMode,
+    replayTimestamp,
+    wsStatus,
+    wsAttemptCount,
+    enterReplay,
+    exitReplay,
+    createWorkflow,
+    deleteWorkflow,
+    duplicateWorkflow,
+    renameWorkflow,
+    selectWorkflow,
+    openBuilder,
+    saveWorkflow,
+    addComponent,
+    updateComponent,
+    removeComponent,
+    updateNodesAndEdges,
+    getWorkflow,
+    setActiveView,
+    generateMetrics,
+    triggerReconnect,
+    registerReconnectCallback
+  ])
 
   return (
     <WorkflowContext.Provider value={value}>
