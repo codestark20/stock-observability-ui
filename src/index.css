@@ -2353,3 +2353,37 @@ body {
   margin-left: 6px;
   animation: pulse-dot 2s ease-in-out infinite;
 }
+
+/* ══════════════════════════════════════════════════════════
+   STABILITY FIX: Kill all GPU compositing triggers
+   that cause Chrome screen flickering / tearing.
+   ══════════════════════════════════════════════════════════ */
+
+/* Force hardware compositing on the root to create a single
+   stable GPU layer instead of many competing sub-layers */
+.app-shell {
+  will-change: auto;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+}
+
+/* Disable all infinite animations — they create separate
+   compositor layers that fight with each other in Chrome */
+.status-dot--warning,
+.status-dot--critical,
+.service-node--critical,
+.realtime-badge,
+.edge-in-trace,
+.edge-critical-path {
+  animation: none !important;
+}
+
+/* Remove backdrop-filter — known Chrome flicker trigger
+   when combined with overflow:hidden ancestors */
+.connection-banner,
+.replay-bar__toggle,
+.replay-bar__panel {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
