@@ -885,7 +885,7 @@ export default function WorkflowDashboard() {
             nodes={flowNodes}
             edges={flowEdges}
             nodeTypes={nodeTypes}
-            fitView
+            onInit={(instance) => instance.fitView({ padding: 0.2, maxZoom: 1 })}
             onNodeClick={(_, node) => setSelectedNodeId(node.id)}
             onPaneClick={() => setSelectedNodeId(null)}
             nodesDraggable={false}
