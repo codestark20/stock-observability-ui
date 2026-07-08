@@ -59,6 +59,9 @@ export default function WorkflowDashboard() {
   const [metricsData, setMetricsData] = useState({}) // { [componentId]: { latency_ms: [...], throughput_rps: [...], cpu_percent: [...] } }
   const [logsData, setLogsData] = useState({}) // { [componentId]: [ { timestamp, severity_text, body, ... }, ... ] }
   const [refreshTick, setRefreshTick] = useState(0)
+  
+  // Track per-instance status: { [componentId]: { [instanceId]: { status, latency, lastSeen } } }
+  const [instanceHealth, setInstanceHealth] = useState({})
 
   // -- Features --
   const [funnelData, setFunnelData] = useState(null)
@@ -254,11 +257,39 @@ export default function WorkflowDashboard() {
           return { id: String(event.id || Math.random()), time: formatTime(new Date(event.created_at)), message: `<strong>${compName}</strong> — ${event.message || event.status} (${event.entity_id})`, severity }
         })
         setIncidentEvents(historicalLog)
+        
+        // Build instance health map from historical events
+        const newHealth = {}
+        for (const event of events) {
+          const cid = event.component_id
+          const iid = event.instance_id || 'default'
+          if (!newHealth[cid]) newHealth[cid] = {}
+          // Only take the newest event per instance (events are DESC sorted)
+          if (!newHealth[cid][iid]) {
+            newHealth[cid][iid] = {
+              status: event.status,
+              latency: event.duration_ms ? `${event.duration_ms}ms` : null,
+              lastSeen: new Date(event.created_at).getTime()
+            }
+          }
+        }
+        setInstanceHealth(newHealth)
+
         setRuntimeComponents(prevComps => {
           const updated = [...prevComps]
-          for (const event of events) {
-            const compIndex = updated.findIndex(c => c.id === event.component_id)
-            if (compIndex !== -1) updated[compIndex] = { ...updated[compIndex], status: event.status || updated[compIndex].status, latency: event.duration_ms ? `${event.duration_ms}ms` : updated[compIndex].latency }
+          for (const cid of Object.keys(newHealth)) {
+            const compIndex = updated.findIndex(c => c.id === cid)
+            if (compIndex !== -1) {
+              const instances = Object.values(newHealth[cid])
+              const hasCritical = instances.some(i => i.status === 'critical')
+              const hasWarning = instances.some(i => i.status === 'warning')
+              const worstStatus = hasCritical ? 'critical' : (hasWarning ? 'warning' : 'healthy')
+              
+              // Latency: average of recent instances? Or just take one. Let's take the first one or average
+              const recentLatency = instances.find(i => i.latency)?.latency || updated[compIndex].latency
+
+              updated[compIndex] = { ...updated[compIndex], status: worstStatus, latency: recentLatency }
+            }
           }
           return updated
         })
@@ -318,15 +349,23 @@ export default function WorkflowDashboard() {
 
   // Handle incoming real events from Supabase Realtime
   const handleRealEvent = useCallback((event) => {
-    // Update component status based on the real event
-    setRuntimeComponents(prev => prev.map(c => {
-      if (c.id !== event.component_id) return c
-      return {
-        ...c,
-        status: event.status || c.status,
-        latency: event.duration_ms ? `${event.duration_ms}ms` : c.latency
+    const cid = event.component_id
+    const iid = event.instance_id || 'default'
+    const now = Date.now()
+
+    setInstanceHealth(prev => {
+      const next = { ...prev }
+      if (!next[cid]) next[cid] = {}
+      next[cid] = {
+        ...next[cid],
+        [iid]: {
+          status: event.status || 'healthy',
+          latency: event.duration_ms ? `${event.duration_ms}ms` : (next[cid][iid]?.latency || null),
+          lastSeen: now
+        }
       }
-    }))
+      return next
+    })
 
     // Add to incident log
     const severity = event.status === 'critical' ? 'critical'
@@ -367,12 +406,50 @@ export default function WorkflowDashboard() {
   // Live clock removed — it caused a full component re-render every second
   // which cascaded into ReactFlow re-layout and caused visible flickering
 
+  // Sync runtimeComponents worst-status whenever instanceHealth changes
+  useEffect(() => {
+    setRuntimeComponents(prev => prev.map(c => {
+      const instances = instanceHealth[c.id]
+      if (!instances) return c
+
+      // Filter out instances older than 120s (trailing window)
+      const now = Date.now()
+      const activeInstances = Object.values(instances).filter(i => (now - i.lastSeen) < 120000)
+      
+      if (activeInstances.length === 0) return c
+
+      const hasCritical = activeInstances.some(i => i.status === 'critical')
+      const hasWarning = activeInstances.some(i => i.status === 'warning')
+      const worstStatus = hasCritical ? 'critical' : (hasWarning ? 'warning' : 'healthy')
+      
+      // Latency from the most recently seen instance
+      const latestInstance = activeInstances.sort((a, b) => b.lastSeen - a.lastSeen)[0]
+      const recentLatency = latestInstance?.latency || c.latency
+
+      if (c.status === worstStatus && c.latency === recentLatency) return c
+      return { ...c, status: worstStatus, latency: recentLatency }
+    }))
+  }, [instanceHealth])
+
   const selectedNode = useMemo(() => {
     if (!selectedNodeId || !workflow) return null
     const comp = runtimeComponents.find(c => c.id === selectedNodeId)
     if (!comp) return null
-    return { id: comp.id, data: { label: comp.name, manager: comp.manager, sla: comp.sla, linkUsage: comp.linkUsage || '', status: comp.status, latency: comp.latency, tps: comp.tps, cpu: comp.cpu } }
-  }, [selectedNodeId, runtimeComponents, workflow])
+    return { 
+      id: comp.id, 
+      data: { 
+        label: comp.name, 
+        manager: comp.manager, 
+        sla: comp.sla, 
+        linkUsage: comp.linkUsage || '', 
+        status: comp.status, 
+        latency: comp.latency, 
+        tps: comp.tps, 
+        cpu: comp.cpu 
+      },
+      instances: instanceHealth[comp.id] || {} // pass instances to NodeDetailPanel
+    }
+  }, [selectedNodeId, runtimeComponents, workflow, instanceHealth])
 
   const transactionRate = runtimeComponents.some(c => c.status === 'critical')
     ? 92.3

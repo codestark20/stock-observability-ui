@@ -30,6 +30,7 @@ export default async function handler(req, res) {
           const workflowId  = authWorkflowId
           const componentId = findAttr(attrs, 'component.id') || serviceName
           const entityId    = findAttr(attrs, 'entity.id')    || span.traceId
+          const instanceId  = findAttr(resourceAttrs, 'service.instance.id') || findAttr(attrs, 'service.instance.id') || null
 
           // OTel status: 0=UNSET, 1=OK, 2=ERROR
           const status = span.status?.code === 2 ? 'critical' : 'healthy'
@@ -56,7 +57,8 @@ export default async function handler(req, res) {
             duration_ms:  Number(durationMs),
             message:      span.name || '',
             span_id:      span.spanId,
-            parent_span_id: span.parentSpanId || null
+            parent_span_id: span.parentSpanId || null,
+            instance_id:  instanceId
           })
         }
       }

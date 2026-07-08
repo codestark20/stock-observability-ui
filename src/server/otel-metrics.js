@@ -54,6 +54,7 @@ export default async function handler(req, res) {
           for (const dp of dataPoints) {
             const attrs = dp.attributes || []
             const componentId = findAttr(attrs, 'component.id') || findAttr(resourceAttrs, 'component.id')
+            const instanceId = findAttr(resourceAttrs, 'service.instance.id') || findAttr(attrs, 'service.instance.id') || null
 
             if (!componentId) continue
 
@@ -66,6 +67,7 @@ export default async function handler(req, res) {
               metric_name: normalizedName,
               value: Number(value),
               trace_id: traceId,
+              instance_id: instanceId,
             })
           }
 
@@ -73,6 +75,7 @@ export default async function handler(req, res) {
           for (const dp of histogramPoints) {
             const attrs = dp.attributes || []
             const componentId = findAttr(attrs, 'component.id') || findAttr(resourceAttrs, 'component.id')
+            const instanceId = findAttr(resourceAttrs, 'service.instance.id') || findAttr(attrs, 'service.instance.id') || null
 
             if (!componentId) continue
 
@@ -86,6 +89,7 @@ export default async function handler(req, res) {
               metric_name: normalizedName,
               value: Number(value),
               trace_id: traceId,
+              instance_id: instanceId,
             })
           }
         }

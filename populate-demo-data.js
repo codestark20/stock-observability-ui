@@ -45,6 +45,10 @@ async function run() {
       const compId = comp.id
       const spanId = `span_${Math.random().toString(36).substring(7)}`
       
+      const numInstances = Math.floor(Math.random() * 3) + 2 // 2 to 4 instances
+      const instances = Array.from({length: numInstances}, (_, idx) => `i-${Math.random().toString(36).substring(7, 12)}`)
+      const activeInstance = instances[Math.floor(Math.random() * instances.length)]
+
       const durationMs = Math.floor(Math.random() * 50) + 10 // 10-60ms
       const status = Math.random() > 0.9 ? 'critical' : (Math.random() > 0.8 ? 'warning' : 'healthy')
       
@@ -60,6 +64,7 @@ async function run() {
         message: `Processed at ${comp.name}`,
         span_id: spanId,
         parent_span_id: parentSpanId,
+        instance_id: activeInstance,
         created_at: eventTime
       })
       
@@ -70,6 +75,7 @@ async function run() {
           component_id: compId,
           trace_id: traceId,
           span_id: spanId,
+          instance_id: activeInstance,
           severity_text: 'INFO',
           body: `Starting processing for ${entityId}`,
           attributes: { "user.id": "demo_user" },
@@ -80,6 +86,7 @@ async function run() {
           component_id: compId,
           trace_id: traceId,
           span_id: spanId,
+          instance_id: activeInstance,
           severity_text: status === 'critical' ? 'ERROR' : 'DEBUG',
           body: status === 'critical' ? `Connection timeout to downstream` : `Completed in ${durationMs}ms`,
           attributes: { "duration": durationMs },
@@ -87,10 +94,10 @@ async function run() {
         }
       ])
       
-      // 3. Insert Metrics (Latency, TPS, CPU)
+      // 3. Insert Metrics (Latency, TPS, CPU for component level, + host metrics per instance)
       const isSpike = status === 'critical'
       
-      await supabase.from('metrics').insert([
+      const metricsRows = [
         {
           workflow_id: workflow.id,
           component_id: compId,
@@ -115,7 +122,38 @@ async function run() {
           trace_id: isSpike ? traceId : null,
           created_at: eventTime
         }
-      ])
+      ]
+
+      for (const inst of instances) {
+        metricsRows.push(
+          {
+            workflow_id: workflow.id,
+            component_id: compId,
+            instance_id: inst,
+            metric_name: 'host_cpu_percent',
+            value: isSpike && inst === activeInstance ? 95 : Math.floor(Math.random() * 40) + 10,
+            created_at: eventTime
+          },
+          {
+            workflow_id: workflow.id,
+            component_id: compId,
+            instance_id: inst,
+            metric_name: 'host_memory_used_percent',
+            value: Math.floor(Math.random() * 50) + 20,
+            created_at: eventTime
+          },
+          {
+            workflow_id: workflow.id,
+            component_id: compId,
+            instance_id: inst,
+            metric_name: 'host_disk_used_percent',
+            value: Math.floor(Math.random() * 80) + 10,
+            created_at: eventTime
+          }
+        )
+      }
+
+      await supabase.from('metrics').insert(metricsRows)
       
       // 4. Insert Profile (Flamegraph) - for every component
       const profileData = {

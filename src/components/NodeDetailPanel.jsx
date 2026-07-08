@@ -45,7 +45,7 @@ export default function NodeDetailPanel({
     Promise.all([
       supabase
         .from('metrics')
-        .select('component_id, metric_name, value, created_at, trace_id')
+        .select('component_id, metric_name, value, created_at, trace_id, instance_id')
         .eq('workflow_id', activeWorkflowId)
         .eq('component_id', node.id)
         .order('created_at', { ascending: true })
@@ -132,6 +132,15 @@ export default function NodeDetailPanel({
   const latencyData = (componentMetrics.latency_ms     || []).map(m => ({ time: formatMetricTime(m.created_at), value: m.value, trace_id: m.trace_id }))
   const tpsData     = (componentMetrics.throughput_rps || []).map(m => ({ time: formatMetricTime(m.created_at), value: m.value, trace_id: m.trace_id }))
   const cpuData     = (componentMetrics.cpu_percent    || []).map(m => ({ time: formatMetricTime(m.created_at), value: m.value, trace_id: m.trace_id }))
+  
+  // Group host metrics by instance_id
+  const hostMetricsByInstance = {}
+  Object.values(componentMetrics).flat().forEach(m => {
+    if (!m.instance_id) return
+    if (!hostMetricsByInstance[m.instance_id]) hostMetricsByInstance[m.instance_id] = {}
+    hostMetricsByInstance[m.instance_id][m.metric_name] = m.value
+  })
+
   const rootCause = data.status === 'critical'
     ? `${data.label} experiencing cascading failure — SLA breach`
     : data.status === 'warning'
@@ -179,6 +188,9 @@ export default function NodeDetailPanel({
           </button>
           <button className={`tab ${activeTab === 'deps' ? 'tab--active' : ''}`} onClick={() => setActiveTab('deps')}>
             Info
+          </button>
+          <button className={`tab ${activeTab === 'instances' ? 'tab--active' : ''}`} onClick={() => setActiveTab('instances')}>
+            Instances
           </button>
           <button className={`tab ${activeTab === 'integration' ? 'tab--active' : ''}`} onClick={() => setActiveTab('integration')}>
             Integration
@@ -349,6 +361,53 @@ export default function NodeDetailPanel({
                 <span style={{ color: 'var(--text-primary)' }}>{data.linkUsage || 'Not specified'}</span>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Instances Tab */}
+        {activeTab === 'instances' && (
+          <div style={{ animation: 'fadeIn 0.3s ease-out' }}>
+            <div className="section-label">Replica Instances</div>
+            {Object.keys(node.instances || {}).length === 0 ? (
+              <div className="glass-card glass-card--compact" style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px' }}>
+                No multi-instance telemetry received recently.
+              </div>
+            ) : (
+              <div className="table-wrapper" style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', fontSize: '12px', textAlign: 'left', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
+                      <th style={{ padding: '8px 4px' }}>Instance ID</th>
+                      <th style={{ padding: '8px 4px' }}>Status</th>
+                      <th style={{ padding: '8px 4px' }}>Latency</th>
+                      <th style={{ padding: '8px 4px' }}>CPU</th>
+                      <th style={{ padding: '8px 4px' }}>Memory</th>
+                      <th style={{ padding: '8px 4px' }}>Disk</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(node.instances || {}).map(([instanceId, inst]) => {
+                      const hostMetrics = hostMetricsByInstance[instanceId] || {}
+                      return (
+                        <tr key={instanceId} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                          <td style={{ padding: '10px 4px', fontFamily: 'var(--font-mono)', color: 'var(--accent-blue)' }}>{instanceId}</td>
+                          <td style={{ padding: '10px 4px' }}>
+                            <span className={`status-badge status-badge--${inst.status}`} style={{ padding: '2px 6px', fontSize: '10px' }}>
+                              <span className={`status-dot status-dot--${inst.status}`} />
+                              {inst.status}
+                            </span>
+                          </td>
+                          <td style={{ padding: '10px 4px' }}>{inst.latency || '-'}</td>
+                          <td style={{ padding: '10px 4px' }}>{hostMetrics.host_cpu_percent ? `${Math.round(hostMetrics.host_cpu_percent)}%` : '-'}</td>
+                          <td style={{ padding: '10px 4px' }}>{hostMetrics.host_memory_used_percent ? `${Math.round(hostMetrics.host_memory_used_percent)}%` : '-'}</td>
+                          <td style={{ padding: '10px 4px' }}>{hostMetrics.host_disk_used_percent ? `${Math.round(hostMetrics.host_disk_used_percent)}%` : '-'}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
 

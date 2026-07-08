@@ -28,6 +28,7 @@ export default async function handler(req, res) {
           const attrs = logRecord.attributes || []
           
           const componentId = findAttr(attrs, 'component.id') || findAttr(resourceAttrs, 'component.id') || serviceName
+          const instanceId = findAttr(resourceAttrs, 'service.instance.id') || findAttr(attrs, 'service.instance.id') || null
           
           if (!componentId) continue
 
@@ -57,7 +58,8 @@ export default async function handler(req, res) {
             severity_text: severityText,
             body: body,
             attributes: attributesMap,
-            timestamp: timestamp
+            timestamp: timestamp,
+            instance_id: instanceId
           })
         }
       }
