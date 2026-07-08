@@ -434,7 +434,7 @@ body {
 
 .panel-body {
   flex: 1;
-  overflow-y: auto;
+  overflow-y: scroll; /* Force scrollbar to prevent horizontal layout shift flickering */
   padding: 16px 20px;
 }
 
@@ -625,7 +625,8 @@ body {
   border-radius: var(--radius-lg);
   padding: 14px 16px;
   width: 210px;
-  min-height: 200px; /* Fixed height to prevent ResizeObserver layout loops in ReactFlow */
+  height: 220px; /* STRICT fixed height to prevent ResizeObserver layout loops in ReactFlow */
+  overflow: hidden; /* Prevent content from overflowing the fixed height */
   position: relative;
   transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
   cursor: pointer;
@@ -1256,7 +1257,7 @@ body {
 
 .sidebar-workflows {
   flex: 1;
-  overflow-y: auto;
+  overflow-y: scroll; /* Force scrollbar to prevent horizontal layout shift flickering */
   padding: 0 12px 16px;
 }
 
