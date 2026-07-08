@@ -176,10 +176,14 @@ export default function WorkflowDashboard() {
       }
     }
 
+    // Ensure channel names are completely unique per setup to prevent
+    // "cannot add postgres_changes callbacks after subscribe()" errors during rapid remounts
+    const uniq = `${activeWorkflowId}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`
+
     // Subscribe to new events — ONLY this channel gets the status callback
     // to prevent 4x status updates from 4 channels
     const channel = supabase
-      .channel(`events-${activeWorkflowId}`)
+      .channel(`events-${uniq}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'events', filter: `workflow_id=eq.${activeWorkflowId}` },
         (payload) => handleRealEvent(payload.new)
       )
@@ -187,7 +191,7 @@ export default function WorkflowDashboard() {
 
     // Subscribe to global alerts — no status callback
     const aChannel = supabase
-      .channel(`alerts-${activeWorkflowId}`)
+      .channel(`alerts-${uniq}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'alerts', filter: `workflow_id=eq.${activeWorkflowId}` },
         (payload) => setGlobalAlert(payload.new)
       )
@@ -195,7 +199,7 @@ export default function WorkflowDashboard() {
 
     // Subscribe to real-time metrics — no status callback
     const mChannel = supabase
-      .channel(`metrics-${activeWorkflowId}`)
+      .channel(`metrics-${uniq}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'metrics', filter: `workflow_id=eq.${activeWorkflowId}` },
         (payload) => {
           const m = payload.new
@@ -218,7 +222,7 @@ export default function WorkflowDashboard() {
 
     // Subscribe to real-time logs — no status callback
     const lChannel = supabase
-      .channel(`logs-${activeWorkflowId}`)
+      .channel(`logs-${uniq}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'logs', filter: `workflow_id=eq.${activeWorkflowId}` },
         (payload) => {
           const l = payload.new
