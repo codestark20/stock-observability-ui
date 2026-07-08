@@ -202,9 +202,6 @@ function AppContent() {
               <button className="btn btn--primary" onClick={handleCreate}>
                 + Create Blank Workflow
               </button>
-              <button className="btn btn--ghost" onClick={handleCreateICCLDemo}>
-                Load ICCL T+1 Demo
-              </button>
             </div>
             <div className="welcome-features">
               <div className="welcome-feature">
