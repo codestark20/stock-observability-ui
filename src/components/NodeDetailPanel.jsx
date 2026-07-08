@@ -186,9 +186,6 @@ export default function NodeDetailPanel({
           <button className={`tab ${activeTab === 'logs' ? 'tab--active' : ''}`} onClick={() => setActiveTab('logs')}>
             Logs
           </button>
-          <button className={`tab ${activeTab === 'deps' ? 'tab--active' : ''}`} onClick={() => setActiveTab('deps')}>
-            Info
-          </button>
           <button className={`tab ${activeTab === 'instances' ? 'tab--active' : ''}`} onClick={() => setActiveTab('instances')}>
             Instances
           </button>
@@ -345,22 +342,6 @@ export default function NodeDetailPanel({
                 )
               })
             )}
-          </div>
-        )}
-
-        {/* Info Tab */}
-        {activeTab === 'deps' && (
-          <div style={{ animation: 'fadeIn 0.3s ease-out' }}>
-            <div className="section-label">Component Configuration</div>
-            <div className="glass-card glass-card--compact">
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px' }}>
-                <strong>Component ID:</strong> <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent-blue)' }}>{data.label.toLowerCase().replace(/\s+/g, '_')}</span>
-              </div>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                <strong>Common Link Usage:</strong><br/>
-                <span style={{ color: 'var(--text-primary)' }}>{data.linkUsage || 'Not specified'}</span>
-              </div>
-            </div>
           </div>
         )}
 
