@@ -873,14 +873,6 @@ export default function WorkflowDashboard() {
         )}
 
         {/* WebSocket Status Banner */}
-        {wsStatus === 'reconnecting' && (
-          <div className="alert-banner" style={{ background: 'var(--accent-amber, #f59e0b)', color: '#000', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
-            <div className="alert-banner-content">
-              <FiWifiOff style={{ marginRight: '8px' }} />
-              <span>Connection lost — reconnecting… (attempt {wsAttemptCount}/5)</span>
-            </div>
-          </div>
-        )}
         {wsStatus === 'failed' && (
           <div className="alert-banner" style={{ background: 'var(--status-critical)', color: '#fff', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
             <div className="alert-banner-content">
