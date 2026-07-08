@@ -84,7 +84,7 @@ function AppContent() {
   }, [createWorkflow, saveWorkflow, selectWorkflow])
 
   const handleCreateStockDemo = useCallback(() => {
-    const id = createWorkflow('Stock Trade Execution')
+    const id = createWorkflow('Order Fulfillment Pipeline')
 
     // Pre-built components
     const components = [
@@ -112,7 +112,7 @@ function AppContent() {
     ]
 
     saveWorkflow(id, {
-      name: 'Stock Trade Execution',
+      name: 'Order Fulfillment Pipeline',
       commonLink: 'Trade ID',
       components,
       nodes,

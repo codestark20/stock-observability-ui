@@ -16,7 +16,7 @@ export default function LoginPage() {
   return (
     <div className="login-container">
       <form className="login-card" onSubmit={handleLogin}>
-        <h1>Stock Observability</h1>
+        <h1>Nexus Observability</h1>
         <p className="login-subtitle">Sign in to your tenant account</p>
         
         {error && <p className="login-error">{error}</p>}
