@@ -102,12 +102,105 @@ export default async function handler(req, res) {
       raw_payload: req.body,
     })
 
+    // Fire alert evaluation in the background (non-blocking).
+    // We deliberately do NOT await this — it runs concurrently while we respond.
+    if (rows.length > 0) {
+      const componentIds = [...new Set(rows.map(r => r.component_id))]
+      evaluateAlertsForComponents(authWorkflowId, componentIds).catch(err =>
+        console.error('[otel-metrics] Alert evaluation error:', err.message)
+      )
+    }
+
     return res.status(result.status).json(result.body)
   } catch (err) {
     console.error('[otel-metrics] Unhandled error:', err)
     return res.status(500).json({ error: 'Internal metrics ingestion error' })
   }
 }
+
+/**
+ * Evaluate alert rules for specific components after new metrics arrive.
+ * Only checks rules for the components that just reported metrics — fast and targeted.
+ */
+async function evaluateAlertsForComponents(workflowId, componentIds) {
+  const { data: rules } = await supabase
+    .from('alert_rules')
+    .select('*')
+    .eq('workflow_id', workflowId)
+    .in('component_id', componentIds)
+
+  if (!rules || rules.length === 0) return
+
+  const now = new Date()
+  const windowStart = new Date(now.getTime() - 5 * 60 * 1000).toISOString()
+
+  for (const rule of rules) {
+    try {
+      // Enforce cooldown
+      if (rule.last_fired_at) {
+        const lastFired = new Date(rule.last_fired_at)
+        if (now - lastFired < rule.cooldown_minutes * 60 * 1000) continue
+      }
+
+      // Get recent metric values for this rule
+      const { data: metrics } = await supabase
+        .from('metrics')
+        .select('value')
+        .eq('workflow_id', workflowId)
+        .eq('component_id', rule.component_id)
+        .eq('metric_name', rule.metric_name)
+        .gte('created_at', windowStart)
+        .limit(100)
+
+      if (!metrics || metrics.length === 0) continue
+
+      const avg = metrics.reduce((s, m) => s + Number(m.value), 0) / metrics.length
+      const breached = rule.condition === 'gt' ? avg > rule.threshold : avg < rule.threshold
+
+      if (!breached) continue
+
+      // Fire Slack if webhook is configured
+      if (rule.slack_webhook_url) {
+        const condLabel = rule.condition === 'gt' ? '>' : '<'
+        const emoji = rule.severity === 'critical' ? '🚨' : '⚠️'
+        const color = rule.severity === 'critical' ? '#e53e3e' : '#dd6b20'
+        await fetch(rule.slack_webhook_url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            attachments: [{
+              color,
+              blocks: [
+                { type: 'header', text: { type: 'plain_text', text: `${emoji} ${rule.severity.toUpperCase()} — ${rule.component_id}`, emoji: true } },
+                { type: 'section', fields: [
+                  { type: 'mrkdwn', text: `*Metric:*\n\`${rule.metric_name}\`` },
+                  { type: 'mrkdwn', text: `*Value:*\n${avg.toFixed(2)} (threshold ${condLabel} ${rule.threshold})` },
+                ]},
+                { type: 'actions', elements: [{ type: 'button', text: { type: 'plain_text', text: '→ Open Dashboard' }, url: 'https://stock-observability-ui.vercel.app', style: 'primary' }] }
+              ]
+            }]
+          })
+        }).catch(() => {})
+      }
+
+      // Record in alerts table so dashboard shows it
+      await supabase.from('alerts').insert({
+        workflow_id: workflowId,
+        component_id: rule.component_id,
+        message: `[${rule.severity.toUpperCase()}] ${rule.metric_name} = ${avg.toFixed(2)} (threshold ${rule.condition === 'gt' ? '>' : '<'} ${rule.threshold})`,
+        status: rule.severity,
+        created_at: now.toISOString(),
+      })
+
+      // Update cooldown
+      await supabase.from('alert_rules').update({ last_fired_at: now.toISOString() }).eq('id', rule.id)
+      console.log(`[alert-engine] Fired: ${rule.component_id}/${rule.metric_name} avg=${avg.toFixed(2)}`)
+    } catch (err) {
+      console.error(`[alert-engine] Rule ${rule.id} error:`, err.message)
+    }
+  }
+}
+
 
 function findAttr(attrs, key) {
   const a = attrs.find(a => a.key === key)
