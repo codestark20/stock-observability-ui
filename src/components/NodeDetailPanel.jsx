@@ -485,7 +485,6 @@ span.setAttribute('entity.id', '<TRACE_KEY>'); // e.g., Order ID`}
                 Export your traces to our Vercel endpoint via an OTel Collector. Check the <code>examples/</code> folder in the repository for full Node.js and Python setups!
               </div>
             </div>
-          </div>
 
             {/* ── Alert Rules ─────────────────────────────── */}
             <div style={{ marginTop: '24px' }}>
