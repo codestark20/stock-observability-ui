@@ -194,7 +194,7 @@ function AppContent() {
         {activeView === 'welcome' && (
           <div className="welcome-page">
             <div className="welcome-icon">⚡</div>
-            <h2 className="welcome-title">Workflow Observability Platform</h2>
+            <h2 className="welcome-title">Nexus Observability</h2>
             <p className="welcome-text">
               Build custom workflows, define component SLAs, and monitor system health in real time.
             </p>
