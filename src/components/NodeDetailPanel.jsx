@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react'
-import { FiX, FiUser, FiActivity, FiRefreshCw, FiPause, FiZap } from 'react-icons/fi'
+import React, { useState, useEffect, useCallback } from 'react'
+import { FiX, FiUser, FiActivity, FiRefreshCw, FiPause, FiZap, FiBell, FiTrash2, FiPlus } from 'react-icons/fi'
 import MetricsPanel from './MetricsPanel'
 import Flamegraph from './Flamegraph'
 import { useReplayData } from '../hooks/useReplayData';
@@ -37,6 +37,73 @@ export default function NodeDetailPanel({
   const [selfMetrics, setSelfMetrics] = useState({})
   const [selfLogs, setSelfLogs] = useState([])
   const [isLoadingData, setIsLoadingData] = useState(false)
+
+  // Alert Rules state
+  const [alertRules, setAlertRules] = useState([])
+  const [alertRulesLoading, setAlertRulesLoading] = useState(false)
+  const [alertRulesError, setAlertRulesError] = useState(null)
+  const [showAddRule, setShowAddRule] = useState(false)
+  const [newRule, setNewRule] = useState({
+    metric_name: 'latency_ms',
+    condition: 'gt',
+    threshold: '',
+    severity: 'warning',
+    slack_webhook_url: '',
+    cooldown_minutes: 15,
+  })
+  const [addingRule, setAddingRule] = useState(false)
+
+  const fetchAlertRules = useCallback(async () => {
+    if (!node?.id || !activeWorkflowId) return
+    setAlertRulesLoading(true)
+    setAlertRulesError(null)
+    try {
+      const res = await fetch(`/api/workflows/${activeWorkflowId}/alert-rules?componentId=${encodeURIComponent(node.id)}`)
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Failed to load rules')
+      setAlertRules(json.rules || [])
+    } catch (err) {
+      setAlertRulesError(err.message)
+    } finally {
+      setAlertRulesLoading(false)
+    }
+  }, [node?.id, activeWorkflowId])
+
+  const handleAddRule = async () => {
+    if (!newRule.threshold) return
+    setAddingRule(true)
+    try {
+      const res = await fetch(`/api/workflows/${activeWorkflowId}/alert-rules`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...newRule, component_id: node.id, threshold: Number(newRule.threshold) })
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Failed to add rule')
+      setAlertRules(prev => [json.rule, ...prev])
+      setShowAddRule(false)
+      setNewRule({ metric_name: 'latency_ms', condition: 'gt', threshold: '', severity: 'warning', slack_webhook_url: '', cooldown_minutes: 15 })
+    } catch (err) {
+      setAlertRulesError(err.message)
+    } finally {
+      setAddingRule(false)
+    }
+  }
+
+  const handleDeleteRule = async (ruleId) => {
+    try {
+      const res = await fetch(`/api/workflows/${activeWorkflowId}/alert-rules?ruleId=${ruleId}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error('Failed to delete rule')
+      setAlertRules(prev => prev.filter(r => r.id !== ruleId))
+    } catch (err) {
+      setAlertRulesError(err.message)
+    }
+  }
+
+  // Fetch alert rules when integration tab opens
+  useEffect(() => {
+    if (activeTab === 'integration') fetchAlertRules()
+  }, [activeTab, fetchAlertRules])
 
   // Fetch metrics and logs for this specific component when it opens
   useEffect(() => {
@@ -417,6 +484,159 @@ span.setAttribute('entity.id', '<TRACE_KEY>'); // e.g., Order ID`}
               <div style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
                 Export your traces to our Vercel endpoint via an OTel Collector. Check the <code>examples/</code> folder in the repository for full Node.js and Python setups!
               </div>
+            </div>
+          </div>
+
+            {/* ── Alert Rules ─────────────────────────────── */}
+            <div style={{ marginTop: '24px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <div className="section-label" style={{ marginBottom: 0 }}>
+                  <FiBell style={{ marginRight: '6px', verticalAlign: 'middle' }} />
+                  Alert Rules
+                </div>
+                <button
+                  className="btn btn--ghost"
+                  style={{ fontSize: '11px', padding: '4px 10px' }}
+                  onClick={() => setShowAddRule(v => !v)}
+                >
+                  <FiPlus style={{ marginRight: '4px' }} />
+                  Add Rule
+                </button>
+              </div>
+
+              {alertRulesError && (
+                <div style={{ fontSize: '11px', color: 'var(--status-critical)', marginBottom: '8px', padding: '8px', background: 'rgba(239,68,68,0.1)', borderRadius: '6px' }}>
+                  {alertRulesError}
+                </div>
+              )}
+
+              {/* Add Rule Form */}
+              {showAddRule && (
+                <div className="glass-card glass-card--compact" style={{ marginBottom: '12px', border: '1px solid rgba(56,189,248,0.25)' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
+                    <div>
+                      <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Metric</div>
+                      <select
+                        className="form-input"
+                        style={{ fontSize: '12px', padding: '6px 8px' }}
+                        value={newRule.metric_name}
+                        onChange={e => setNewRule(r => ({ ...r, metric_name: e.target.value }))}
+                      >
+                        <option value="latency_ms">latency_ms</option>
+                        <option value="error_rate">error_rate</option>
+                        <option value="cpu_percent">cpu_percent</option>
+                        <option value="memory_percent">memory_percent</option>
+                        <option value="disk_percent">disk_percent</option>
+                        <option value="throughput_rps">throughput_rps</option>
+                      </select>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Condition</div>
+                      <select
+                        className="form-input"
+                        style={{ fontSize: '12px', padding: '6px 8px' }}
+                        value={newRule.condition}
+                        onChange={e => setNewRule(r => ({ ...r, condition: e.target.value }))}
+                      >
+                        <option value="gt">&gt; Greater than</option>
+                        <option value="lt">&lt; Less than</option>
+                      </select>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Threshold</div>
+                      <input
+                        className="form-input"
+                        type="number"
+                        placeholder="e.g. 500"
+                        style={{ fontSize: '12px', padding: '6px 8px' }}
+                        value={newRule.threshold}
+                        onChange={e => setNewRule(r => ({ ...r, threshold: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Severity</div>
+                      <select
+                        className="form-input"
+                        style={{ fontSize: '12px', padding: '6px 8px' }}
+                        value={newRule.severity}
+                        onChange={e => setNewRule(r => ({ ...r, severity: e.target.value }))}
+                      >
+                        <option value="warning">⚠️ Warning</option>
+                        <option value="critical">🚨 Critical</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div style={{ marginBottom: '8px' }}>
+                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Slack Webhook URL (optional)</div>
+                    <input
+                      className="form-input"
+                      type="url"
+                      placeholder="https://hooks.slack.com/services/..."
+                      style={{ fontSize: '12px', padding: '6px 8px', width: '100%', boxSizing: 'border-box' }}
+                      value={newRule.slack_webhook_url}
+                      onChange={e => setNewRule(r => ({ ...r, slack_webhook_url: e.target.value }))}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Cooldown (minutes)</div>
+                      <input
+                        className="form-input"
+                        type="number"
+                        min="1"
+                        style={{ fontSize: '12px', padding: '6px 8px' }}
+                        value={newRule.cooldown_minutes}
+                        onChange={e => setNewRule(r => ({ ...r, cooldown_minutes: Number(e.target.value) }))}
+                      />
+                    </div>
+                    <button
+                      className="btn btn--primary"
+                      style={{ fontSize: '12px', padding: '6px 14px', marginTop: '18px' }}
+                      onClick={handleAddRule}
+                      disabled={addingRule || !newRule.threshold}
+                    >
+                      {addingRule ? 'Saving…' : 'Save Rule'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Rules List */}
+              {alertRulesLoading ? (
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)', textAlign: 'center', padding: '12px' }}>Loading rules…</div>
+              ) : alertRules.length === 0 ? (
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)', textAlign: 'center', padding: '12px', border: '1px dashed var(--border-subtle)', borderRadius: '8px' }}>
+                  No alert rules configured. Add one to get notified when this component breaches a threshold.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {alertRules.map(rule => (
+                    <div key={rule.id} className="glass-card glass-card--compact" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', border: rule.severity === 'critical' ? '1px solid rgba(239,68,68,0.3)' : '1px solid rgba(251,191,36,0.3)' }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '3px' }}>
+                          <span style={{ color: rule.severity === 'critical' ? 'var(--status-critical)' : '#f59e0b', marginRight: '6px' }}>
+                            {rule.severity === 'critical' ? '🚨' : '⚠️'}
+                          </span>
+                          {rule.metric_name} {rule.condition === 'gt' ? '>' : '<'} {rule.threshold}
+                        </div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                          Cooldown: {rule.cooldown_minutes}m
+                          {rule.slack_webhook_url && <span style={{ color: '#4ade80', marginLeft: '8px' }}>● Slack</span>}
+                          {!rule.slack_webhook_url && <span style={{ color: 'var(--text-muted)', marginLeft: '8px' }}>○ No webhook</span>}
+                          {rule.last_fired_at && <span style={{ display: 'block', marginTop: '2px' }}>Last fired: {new Date(rule.last_fired_at).toLocaleString()}</span>}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleDeleteRule(rule.id)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '2px', flexShrink: 0 }}
+                        title="Delete rule"
+                      >
+                        <FiTrash2 size={13} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
