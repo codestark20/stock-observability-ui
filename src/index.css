@@ -2411,8 +2411,83 @@ body {
 .canvas-search-form {
   background: var(--bg-tertiary);
   box-shadow: var(--shadow-md);
-  margin-left: auto; /* Push to the right if left is empty */
 }
+
+/* Vertical tool pill group — left side of canvas */
+.canvas-tool-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  pointer-events: auto;
+}
+
+.canvas-tool-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  backdrop-filter: blur(12px);
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  font-family: var(--font-sans);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.canvas-tool-btn:hover:not(:disabled) {
+  background: rgba(30, 41, 59, 0.95);
+  border-color: rgba(148, 163, 184, 0.3);
+  color: var(--text-primary);
+  transform: translateX(2px);
+}
+
+.canvas-tool-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.canvas-tool-btn--active {
+  background: rgba(30, 41, 59, 0.95) !important;
+  color: var(--text-primary) !important;
+}
+
+.canvas-tool-btn--orange {
+  border-color: rgba(234, 88, 12, 0.5) !important;
+  color: #f97316 !important;
+  background: rgba(234, 88, 12, 0.1) !important;
+}
+
+.canvas-tool-btn--red {
+  border-color: rgba(239, 68, 68, 0.5) !important;
+  color: #f87171 !important;
+  background: rgba(239, 68, 68, 0.1) !important;
+}
+
+.canvas-tool-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.canvas-tool-label {
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+
+/* Icon-only header button */
+.btn--icon-only {
+  padding: 6px 8px !important;
+  min-width: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 
 /* ── Detailed Trace Logs ──────────────────────────────── */
 .trace-log-header {

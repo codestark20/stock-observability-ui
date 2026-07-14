@@ -902,14 +902,14 @@ export default function WorkflowDashboard() {
         </div>
 
         <div className="header-actions">
-          <button className="btn btn--ghost btn--sm" onClick={() => setShowApiKeyModal(true)}>
-            <FiKey style={{ marginRight: '6px' }} /> API Key
+          <button className="btn btn--ghost btn--sm btn--icon-only" onClick={() => setShowApiKeyModal(true)} title="API Key">
+            <FiKey />
           </button>
-          <button className="btn btn--danger btn--sm" onClick={simulateIncident}>
+          <button className="btn btn--ghost btn--sm btn--icon-only" onClick={resetAll} title="Reset All">
+            <FiRefreshCw />
+          </button>
+          <button className="btn btn--ghost btn--sm" onClick={simulateIncident} style={{ color: '#f87171', borderColor: 'rgba(248,113,113,0.3)' }}>
             <FiAlertCircle style={{ marginRight: '6px' }} /> Test Alert
-          </button>
-          <button className="btn btn--ghost btn--sm" onClick={resetAll}>
-            <FiRefreshCw style={{ marginRight: '6px' }} /> Reset
           </button>
           <button className="btn btn--ghost btn--sm" onClick={() => openBuilder(workflow.id)}>
             <FiEdit2 style={{ marginRight: '6px' }} /> Edit Layout
@@ -990,55 +990,47 @@ export default function WorkflowDashboard() {
 
         {/* Center Graph */}
         <div className="graph-canvas">
-          {/* Canvas Overlays */}
+          {/* Canvas Overlays — left pill group + right search */}
           <div className="canvas-overlays">
-            {!isPanelOpen && (
-              <button className="btn-secondary" onClick={() => setIsPanelOpen(true)}>
-                ◧ Show Health Panel
+            {/* Left: vertical tool pill group */}
+            <div className="canvas-tool-group">
+              {!isPanelOpen && (
+                <button className="canvas-tool-btn" onClick={() => setIsPanelOpen(true)} title="Show Health Panel">
+                  <span className="canvas-tool-icon">◧</span>
+                  <span className="canvas-tool-label">Health</span>
+                </button>
+              )}
+              <button
+                className={`canvas-tool-btn ${showCriticalPath ? 'canvas-tool-btn--active canvas-tool-btn--orange' : ''}`}
+                onClick={() => setShowCriticalPath(!showCriticalPath)}
+                disabled={!criticalPathData}
+                title={!criticalPathData ? 'Loading critical path data...' : 'Toggle Bottleneck Highlights'}
+              >
+                <span className="canvas-tool-icon">🔥</span>
+                <span className="canvas-tool-label">Critical Path</span>
               </button>
-            )}
-            
-            <button 
-              className={`btn-secondary ${showCriticalPath ? 'btn-active' : ''}`}
-              style={{ 
-                borderColor: showCriticalPath ? '#ea580c' : undefined,
-                color: showCriticalPath ? '#f97316' : undefined,
-                background: showCriticalPath ? 'rgba(234, 88, 12, 0.1)' : undefined
-              }}
-              onClick={() => setShowCriticalPath(!showCriticalPath)}
-              disabled={!criticalPathData}
-              title={!criticalPathData ? "Loading critical path data..." : "Toggle Bottleneck Highlights"}
-            >
-              🔥 Critical Path
-            </button>
+              <button
+                className={`canvas-tool-btn ${impactMode ? 'canvas-tool-btn--active canvas-tool-btn--red' : ''}`}
+                onClick={() => {
+                  if (impactMode) exitImpactMode()
+                  else if (selectedNodeId) enterImpactMode(selectedNodeId)
+                }}
+                disabled={!selectedNodeId && !impactMode}
+                title={!selectedNodeId && !impactMode ? 'Select a node first' : impactMode ? 'Exit Impact Mode' : 'Show Dependency Blast Radius'}
+              >
+                <span className="canvas-tool-icon">💥</span>
+                <span className="canvas-tool-label">Impact Map</span>
+              </button>
+            </div>
 
-            <button
-              className={`btn-secondary ${impactMode ? 'btn-active' : ''}`}
-              style={{
-                borderColor: impactMode ? '#ef4444' : undefined,
-                color: impactMode ? '#f87171' : undefined,
-                background: impactMode ? 'rgba(239,68,68,0.1)' : undefined
-              }}
-              onClick={() => {
-                if (impactMode) {
-                  exitImpactMode()
-                } else if (selectedNodeId) {
-                  enterImpactMode(selectedNodeId)
-                }
-              }}
-              disabled={!selectedNodeId && !impactMode}
-              title={!selectedNodeId && !impactMode ? 'Select a node first to map its impact' : impactMode ? 'Exit Impact Mode' : 'Show Dependency Blast Radius'}
-            >
-              💥 Impact Map
-            </button>
-
-            <form className="trace-search-form canvas-search-form" onSubmit={e => {
-               performTrace(e)
-               if (!isPanelOpen && traceIdSearch.trim()) setIsPanelOpen(true)
+            {/* Right: entity search */}
+            <form className="canvas-search-form trace-search-form" onSubmit={e => {
+              performTrace(e)
+              if (!isPanelOpen && traceIdSearch.trim()) setIsPanelOpen(true)
             }}>
-              <input 
-                className="trace-search-input" 
-                placeholder="Track Entity (e.g. ORD-123)" 
+              <input
+                className="trace-search-input"
+                placeholder="Track Entity (e.g. ORD-123)"
                 value={traceIdSearch}
                 onChange={e => setTraceIdSearch(e.target.value)}
               />
