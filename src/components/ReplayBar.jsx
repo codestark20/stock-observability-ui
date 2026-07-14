@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useParams } from 'react-router-dom';
 import { useWorkflow } from '../context/WorkflowContext';
 import '../styles/replayBar.css';
 
@@ -6,7 +7,8 @@ const REPLAY_WINDOW_HOURS = 24;
 const PLAY_INTERVAL_MS   = 2000;
 const PLAY_STEP_MINUTES  = 5;
 
-export default function ReplayBar({ workflowId }) {
+export default function ReplayBar() {
+  const { id: workflowId } = useParams();
   const { replayMode, replayTimestamp, enterReplay, exitReplay, setReplayTimestamp }
     = useWorkflow();
 

@@ -1,4 +1,5 @@
 import { useCallback } from 'react'
+import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom'
 import { WorkflowProvider, useWorkflow } from './context/WorkflowContext'
 import Sidebar from './components/Sidebar'
 import WorkflowBuilder from './components/WorkflowBuilder'
@@ -18,34 +19,18 @@ function AuthGate({ children }) {
   return children;
 }
 
-function AppContent() {
-  const {
-    workflows,
-    activeWorkflowId,
-    activeView,
-    createWorkflow,
-    deleteWorkflow,
-    duplicateWorkflow,
-    selectWorkflow,
-    openBuilder,
-    saveWorkflow,
-    setActiveView
-  } = useWorkflow()
+function WelcomePage() {
+  const navigate = useNavigate()
+  const { createWorkflow, saveWorkflow } = useWorkflow()
 
-  const sidebarWorkflows = workflows.map(wf => ({
-    id: wf.id,
-    name: wf.name,
-    componentCount: wf.components?.length || 0,
-    createdAt: wf.created_at || wf.createdAt,
-    overallStatus: 'healthy'
-  }))
-
-  const handleCreate = () => {
-    createWorkflow('Untitled Workflow')
+  const handleCreate = async () => {
+    const id = await createWorkflow('Untitled Workflow')
+    if (id) navigate(`/workflow/${id}/builder`)
   }
 
-  const handleCreateDemo = useCallback(() => {
-    const id = createWorkflow('Employee Onboarding')
+  const handleCreateDemo = useCallback(async () => {
+    const id = await createWorkflow('Employee Onboarding')
+    if (!id) return
 
     // Pre-built components
     const components = [
@@ -80,11 +65,12 @@ function AppContent() {
       edges
     })
 
-    selectWorkflow(id)
-  }, [createWorkflow, saveWorkflow, selectWorkflow])
+    navigate(`/workflow/${id}/dashboard`)
+  }, [createWorkflow, saveWorkflow, navigate])
 
-  const handleCreateStockDemo = useCallback(() => {
-    const id = createWorkflow('Order Fulfillment Pipeline')
+  const handleCreateStockDemo = useCallback(async () => {
+    const id = await createWorkflow('Order Fulfillment Pipeline')
+    if (!id) return
 
     // Pre-built components
     const components = [
@@ -119,11 +105,12 @@ function AppContent() {
       edges
     })
 
-    selectWorkflow(id)
-  }, [createWorkflow, saveWorkflow, selectWorkflow])
+    navigate(`/workflow/${id}/dashboard`)
+  }, [createWorkflow, saveWorkflow, navigate])
 
-  const handleCreateICCLDemo = useCallback(() => {
-    const id = createWorkflow('T+1 Settlement Pipeline')
+  const handleCreateICCLDemo = useCallback(async () => {
+    const id = await createWorkflow('T+1 Settlement Pipeline')
+    if (!id) return
 
     const components = [
       { id: 'demo_iccl_trade', name: 'Trade Ingestion', manager: 'BSE Link', sla: '99.99%', role: 'start', linkUsage: 'Validates raw trade from exchange', latency: '2ms', tps: '150k/sec', cpu: '20%' },
@@ -157,71 +144,95 @@ function AppContent() {
       edges
     })
 
-    selectWorkflow(id)
-  }, [createWorkflow, saveWorkflow, selectWorkflow])
+    navigate(`/workflow/${id}/dashboard`)
+  }, [createWorkflow, saveWorkflow, navigate])
+
+  return (
+    <div className="welcome-page">
+      <div className="welcome-icon">⚡</div>
+      <h2 className="welcome-title">Nexus Observability</h2>
+      <p className="welcome-text">
+        Build custom workflows, define component SLAs, and monitor system health in real time.
+      </p>
+      <div className="welcome-actions" style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
+        <button className="btn btn--primary" onClick={handleCreate}>
+          + Create Blank Workflow
+        </button>
+      </div>
+      <div className="welcome-features">
+        <div className="welcome-feature">
+          <span className="welcome-feature-icon">🔧</span>
+          <div className="welcome-feature-title">Build</div>
+          <div className="welcome-feature-desc">Design custom workflows with drag-and-connect</div>
+        </div>
+        <div className="welcome-feature">
+          <span className="welcome-feature-icon">📊</span>
+          <div className="welcome-feature-title">Monitor</div>
+          <div className="welcome-feature-desc">Real-time metrics, logs, and incident tracking</div>
+        </div>
+        <div className="welcome-feature">
+          <span className="welcome-feature-icon">🚨</span>
+          <div className="welcome-feature-title">Respond</div>
+          <div className="welcome-feature-desc">Simulate incidents and manage service health</div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function AppContent() {
+  const { workflows, deleteWorkflow, duplicateWorkflow } = useWorkflow()
+  const navigate = useNavigate()
+
+  const sidebarWorkflows = workflows.map(wf => ({
+    id: wf.id,
+    name: wf.name,
+    componentCount: wf.components?.length || 0,
+    createdAt: wf.created_at || wf.createdAt,
+    overallStatus: 'healthy'
+  }))
 
   return (
     <div className="app-shell">
       <Sidebar
         workflows={sidebarWorkflows}
-        activeWorkflowId={activeWorkflowId}
-        activeView={activeView}
-        onCreateWorkflow={handleCreate}
-        onSelectWorkflow={selectWorkflow}
-        onEditWorkflow={openBuilder}
-        onDeleteWorkflow={deleteWorkflow}
+        onDeleteWorkflow={(id) => {
+          deleteWorkflow(id)
+          navigate('/')
+        }}
         onDuplicateWorkflow={duplicateWorkflow}
       />
 
       <main className="app-main">
         <ConnectionBanner />
-        {activeView === 'builder' && (
-          <ErrorBoundary onReset={() => setActiveView('welcome')}>
-            <WorkflowBuilder />
-          </ErrorBoundary>
-        )}
-        {activeView === 'dashboard' && (
-          <ErrorBoundary onReset={() => setActiveView('welcome')}>
-            <WorkflowDashboard />
-            <ReplayBar workflowId={activeWorkflowId} />
-          </ErrorBoundary>
-        )}
-        {activeView === 'analytics' && (
-          <ErrorBoundary onReset={() => setActiveView('dashboard')}>
-            <AnalyticsDashboard workflow={workflows.find(w => w.id === activeWorkflowId)} onClose={() => setActiveView('dashboard')} />
-          </ErrorBoundary>
-        )}
-        {activeView === 'welcome' && (
-          <div className="welcome-page">
-            <div className="welcome-icon">⚡</div>
-            <h2 className="welcome-title">Nexus Observability</h2>
-            <p className="welcome-text">
-              Build custom workflows, define component SLAs, and monitor system health in real time.
-            </p>
-            <div className="welcome-actions" style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
-              <button className="btn btn--primary" onClick={handleCreate}>
-                + Create Blank Workflow
-              </button>
-            </div>
-            <div className="welcome-features">
-              <div className="welcome-feature">
-                <span className="welcome-feature-icon">🔧</span>
-                <div className="welcome-feature-title">Build</div>
-                <div className="welcome-feature-desc">Design custom workflows with drag-and-connect</div>
-              </div>
-              <div className="welcome-feature">
-                <span className="welcome-feature-icon">📊</span>
-                <div className="welcome-feature-title">Monitor</div>
-                <div className="welcome-feature-desc">Real-time metrics, logs, and incident tracking</div>
-              </div>
-              <div className="welcome-feature">
-                <span className="welcome-feature-icon">🚨</span>
-                <div className="welcome-feature-title">Respond</div>
-                <div className="welcome-feature-desc">Simulate incidents and manage service health</div>
-              </div>
-            </div>
-          </div>
-        )}
+        <Routes>
+          <Route path="/" element={<WelcomePage />} />
+          <Route 
+            path="/workflow/:id/builder" 
+            element={
+              <ErrorBoundary onReset={() => navigate('/')}>
+                <WorkflowBuilder />
+              </ErrorBoundary>
+            } 
+          />
+          <Route 
+            path="/workflow/:id/dashboard" 
+            element={
+              <ErrorBoundary onReset={() => navigate('/')}>
+                <WorkflowDashboard />
+                <ReplayBar />
+              </ErrorBoundary>
+            } 
+          />
+          <Route 
+            path="/workflow/:id/analytics" 
+            element={
+              <ErrorBoundary onReset={() => navigate('/')}>
+                <AnalyticsDashboard />
+              </ErrorBoundary>
+            } 
+          />
+        </Routes>
       </main>
     </div>
   )
@@ -232,7 +243,9 @@ export default function App() {
     <AuthProvider>
       <AuthGate>
         <WorkflowProvider>
-          <AppContent />
+          <BrowserRouter>
+            <AppContent />
+          </BrowserRouter>
         </WorkflowProvider>
       </AuthGate>
     </AuthProvider>

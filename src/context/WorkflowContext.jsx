@@ -52,8 +52,6 @@ function generateMetrics(name, sla) {
 
 export function WorkflowProvider({ children }) {
   const [workflows, setWorkflows] = useState([])
-  const [activeWorkflowId, setActiveWorkflowId] = useState(null)
-  const [activeView, setActiveView] = useState('welcome') // 'welcome' | 'builder' | 'dashboard'
   const [editingWorkflowId, setEditingWorkflowId] = useState(null)
   const [isOnline, setIsOnline] = useState(true) // API connectivity
   const [isLoading, setIsLoading] = useState(true)
@@ -151,18 +149,12 @@ export function WorkflowProvider({ children }) {
 
   const deleteWorkflow = useCallback(async (id) => {
     setWorkflows(prev => prev.filter(w => w.id !== id))
-    if (activeWorkflowId === id) {
-      setActiveWorkflowId(null)
-      setActiveView('welcome')
-      setEditingWorkflowId(null)
-    }
-
     try {
       await deleteWorkflowAPI(id)
     } catch (err) {
       console.warn('API delete failed:', err.message)
     }
-  }, [activeWorkflowId])
+  }, [])
 
   const duplicateWorkflow = useCallback(async (id) => {
     // Optimistic: duplicate locally
@@ -205,22 +197,6 @@ export function WorkflowProvider({ children }) {
       console.warn('API rename failed:', err.message)
     }
   }, [])
-
-  const selectWorkflow = useCallback((id) => {
-    setActiveWorkflowId(id)
-    setActiveView('dashboard')
-    setEditingWorkflowId(null)
-  }, [])
-
-  const openBuilder = useCallback((id = null) => {
-    if (id) {
-      setEditingWorkflowId(id)
-      setActiveWorkflowId(id)
-      setActiveView('builder')
-    } else {
-      createWorkflow('Untitled Workflow')
-    }
-  }, [createWorkflow])
 
   const saveWorkflow = useCallback(async (id, { name, commonLink, components, nodes, edges }) => {
     const updatedData = {
@@ -344,8 +320,6 @@ export function WorkflowProvider({ children }) {
 
   const value = useMemo(() => ({
     workflows,
-    activeWorkflowId,
-    activeView,
     editingWorkflowId,
     isOnline,
     isLoading,

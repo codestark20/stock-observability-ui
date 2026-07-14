@@ -1,7 +1,15 @@
 import { useState, useEffect } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
 import { fetchWorkflowAnalytics } from '../lib/api'
+import { useWorkflow } from '../context/WorkflowContext'
+import { FiEye } from 'react-icons/fi'
 
-export default function AnalyticsDashboard({ workflow, onClose }) {
+export default function AnalyticsDashboard() {
+  const { id: activeWorkflowId } = useParams()
+  const navigate = useNavigate()
+  const { getWorkflow } = useWorkflow()
+  const workflow = getWorkflow(activeWorkflowId)
+  
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -35,8 +43,8 @@ export default function AnalyticsDashboard({ workflow, onClose }) {
           </div>
         </div>
         <div className="header-actions">
-          <button className="btn btn--primary btn--sm" onClick={onClose}>
-            Back to Live View
+          <button className="btn btn--primary btn--sm" onClick={() => navigate(`/workflow/${workflow.id}/dashboard`)}>
+            <FiEye style={{ marginRight: '6px' }} /> Back to Live View
           </button>
         </div>
       </header>

@@ -12,7 +12,8 @@ import 'reactflow/dist/style.css'
 
 import BuilderNode from './BuilderNode'
 import ComponentForm from './ComponentForm'
-import { FiArrowRight, FiArrowLeft, FiTrash2, FiSave, FiLayout, FiPlus, FiInfo, FiRefreshCw, FiCommand } from 'react-icons/fi'
+import { useParams, useNavigate } from 'react-router-dom'
+import { FiArrowRight, FiArrowLeft, FiTrash2, FiSave, FiLayout, FiPlus, FiInfo, FiRefreshCw, FiCommand, FiActivity, FiEye } from 'react-icons/fi'
 import { useWorkflow } from '../context/WorkflowContext'
 
 const nodeTypes = { builderNode: BuilderNode }
@@ -53,8 +54,9 @@ function buildEdgeStyle(direction, commonLink) {
 }
 
 export default function WorkflowBuilder() {
+  const { id: editingWorkflowId } = useParams()
+  const navigate = useNavigate()
   const {
-    editingWorkflowId,
     getWorkflow,
     saveWorkflow,
     addComponent,
@@ -240,7 +242,7 @@ export default function WorkflowBuilder() {
     })
     renameWorkflow(editingWorkflowId, workflowName)
     setHasChanges(false)
-    setActiveView('dashboard')
+    navigate(`/workflow/${editingWorkflowId}/dashboard`)
   }, [editingWorkflowId, nodes, edges, workflowName, commonLink, saveWorkflow, renameWorkflow, setActiveView])
 
   const autoLayout = useCallback(() => {
@@ -403,10 +405,13 @@ export default function WorkflowBuilder() {
           <button className="btn btn--ghost btn--sm" onClick={discoverTopology} disabled={isDiscovering}>
             <FiCommand style={{ marginRight: '6px' }} /> {isDiscovering ? 'Discovering...' : 'Auto-Discover'}
           </button>
-          <button className="btn btn--ghost btn--sm" onClick={autoLayout}>
-            <FiLayout style={{ marginRight: '6px' }} /> Auto Layout
+          <button className="header-icon-btn" onClick={() => navigate(`/workflow/${editingWorkflowId}/analytics`)} title="Open Analytics" style={{ padding: '6px' }}>
+            <FiActivity size={18} />
           </button>
-          <button className="btn btn--success btn--sm" onClick={handleSave}>
+          <button className="header-icon-btn" onClick={() => navigate(`/workflow/${editingWorkflowId}/dashboard`)} title="View Dashboard" style={{ padding: '6px' }}>
+            <FiEye size={18} />
+          </button>
+          <button className="btn btn--primary" onClick={handleSave}>
             <FiSave style={{ marginRight: '6px' }} /> Save & Monitor
           </button>
         </div>

@@ -14,6 +14,7 @@ import ErrorBoundary from './ErrorBoundary'
 import IncidentTimeline from './IncidentTimeline'
 import TraceTimelinePanel from './TraceTimelinePanel'
 import FunnelPanel from './FunnelPanel'
+import { useParams, useNavigate } from 'react-router-dom'
 import ImpactSummaryPanel from './ImpactSummaryPanel'
 import { useWorkflow } from '../context/WorkflowContext'
 import { supabase, isSupabaseEnabled } from '../lib/supabase'
@@ -48,7 +49,9 @@ function generateMetrics(name, sla) {
 }
 
 export default function WorkflowDashboard() {
-  const { activeWorkflowId, getWorkflow, openBuilder, setActiveView, wsStatus, setWsStatus, wsAttemptCount, setWsAttemptCount, triggerReconnect, registerReconnectCallback } = useWorkflow()
+  const { id: activeWorkflowId } = useParams()
+  const navigate = useNavigate()
+  const { getWorkflow, wsStatus, setWsStatus, wsAttemptCount, setWsAttemptCount, triggerReconnect, registerReconnectCallback } = useWorkflow()
   const workflow = getWorkflow(activeWorkflowId)
 
   // Runtime State
@@ -902,17 +905,17 @@ export default function WorkflowDashboard() {
         </div>
 
         <div className="header-actions">
-          <button className="btn btn--ghost btn--sm btn--icon-only" onClick={() => setShowApiKeyModal(true)} title="API Key">
-            <FiKey />
-          </button>
-          <button className="btn btn--ghost btn--sm btn--icon-only" onClick={resetAll} title="Reset All">
-            <FiRefreshCw />
-          </button>
+              <button className="header-icon-btn" onClick={() => navigate(`/workflow/${workflow.id}/analytics`)} title="Open Analytics">
+                <FiActivity size={18} />
+              </button>
+              <button className="header-icon-btn" onClick={() => navigate(`/workflow/${workflow.id}/builder`)} title="Edit Layout">
+                <FiEdit2 size={18} />
+              </button>
           <button className="btn btn--ghost btn--sm" onClick={simulateIncident} style={{ color: '#f87171', borderColor: 'rgba(248,113,113,0.3)' }}>
             <FiAlertCircle style={{ marginRight: '6px' }} /> Test Alert
           </button>
-          <button className="btn btn--ghost btn--sm" onClick={() => openBuilder(workflow.id)}>
-            <FiEdit2 style={{ marginRight: '6px' }} /> Edit Layout
+          <button className="btn btn--ghost btn--sm" onClick={resetAll} title="Reset All">
+            <FiRefreshCw />
           </button>
         </div>
       </header>
