@@ -46,7 +46,10 @@ export default function DashboardNode({ data }) {
     data.isTraceMode && !data.inTracePath ? 'service-node--dimmed' : '',
     data.inTracePath ? 'service-node--in-trace' : '',
     data.isBottleneck ? 'service-node--bottleneck' : '',
-    data.isCriticalPath ? 'service-node--critical-path' : ''
+    data.isCriticalPath ? 'service-node--critical-path' : '',
+    data.isImpactSource ? 'service-node--impact-source' : '',
+    data.isAtRisk ? 'service-node--at-risk' : '',
+    data.isImpactMode && !data.isImpactSource && !data.isAtRisk ? 'service-node--dimmed' : ''
   ].filter(Boolean).join(' ')
 
   return (
@@ -58,15 +61,29 @@ export default function DashboardNode({ data }) {
         </>
       )}
 
+      {/* Impact Source badge */}
+      {data.isImpactSource && (
+        <div className="dash-node-badge dash-node-badge--impact-source">
+          🔴 FAILING
+        </div>
+      )}
+
+      {/* At Risk badge */}
+      {data.isAtRisk && !data.isImpactSource && (
+        <div className="dash-node-badge dash-node-badge--at-risk">
+          ⚠️ AT RISK
+        </div>
+      )}
+
       {/* Role badge */}
-      {config.badge && !data.isBottleneck && (
+      {config.badge && !data.isBottleneck && !data.isImpactSource && !data.isAtRisk && (
         <div className={`dash-node-badge ${config.badgeClass}`}>
           {config.icon} {config.badge}
         </div>
       )}
       
       {/* Bottleneck badge (overrides role badge if active) */}
-      {data.isBottleneck && (
+      {data.isBottleneck && !data.isImpactSource && !data.isAtRisk && (
         <div className="dash-node-badge dash-node-badge--bottleneck">
           🔥 BOTTLENECK
         </div>

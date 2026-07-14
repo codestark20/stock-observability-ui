@@ -14,10 +14,11 @@ import ErrorBoundary from './ErrorBoundary'
 import IncidentTimeline from './IncidentTimeline'
 import TraceTimelinePanel from './TraceTimelinePanel'
 import FunnelPanel from './FunnelPanel'
+import ImpactSummaryPanel from './ImpactSummaryPanel'
 import { useWorkflow } from '../context/WorkflowContext'
 import { supabase, isSupabaseEnabled } from '../lib/supabase'
 import { fetchEntityTrace, fetchWorkflowEvents, fetchFunnel, fetchCriticalPath } from '../lib/api'
-import { FiAlertCircle, FiRefreshCw, FiEdit2, FiLink, FiSearch, FiClipboard, FiActivity, FiKey, FiX, FiWifi, FiWifiOff } from 'react-icons/fi'
+import { FiAlertCircle, FiRefreshCw, FiEdit2, FiLink, FiSearch, FiClipboard, FiActivity, FiKey, FiX, FiWifi, FiWifiOff, FiZap } from 'react-icons/fi'
 
 const nodeTypes = { dashboardNode: DashboardNode }
 
@@ -67,6 +68,44 @@ export default function WorkflowDashboard() {
   const [funnelData, setFunnelData] = useState(null)
   const [criticalPathData, setCriticalPathData] = useState(null)
   const [showCriticalPath, setShowCriticalPath] = useState(false)
+
+  // -- Impact Mode (Dependency Blast Radius) --
+  const [impactMode, setImpactMode] = useState(false)
+  const [impactSourceId, setImpactSourceId] = useState(null)
+  const [blastRadiusIds, setBlastRadiusIds] = useState(new Set())
+
+  // BFS: compute all downstream nodes reachable from sourceId via edges
+  const computeBlastRadius = useCallback((sourceId, edges) => {
+    const downstream = new Set()
+    const queue = [sourceId]
+    const visited = new Set([sourceId])
+    while (queue.length > 0) {
+      const current = queue.shift()
+      const outgoing = (edges || []).filter(e => e.source === current)
+      for (const edge of outgoing) {
+        if (!visited.has(edge.target)) {
+          visited.add(edge.target)
+          downstream.add(edge.target)
+          queue.push(edge.target)
+        }
+      }
+    }
+    return downstream
+  }, [])
+
+  const enterImpactMode = useCallback((sourceId) => {
+    if (!workflow) return
+    const radius = computeBlastRadius(sourceId, workflow.edges || [])
+    setImpactSourceId(sourceId)
+    setBlastRadiusIds(radius)
+    setImpactMode(true)
+  }, [workflow, computeBlastRadius])
+
+  const exitImpactMode = useCallback(() => {
+    setImpactMode(false)
+    setImpactSourceId(null)
+    setBlastRadiusIds(new Set())
+  }, [])
 
   // Trace Mode State
   const [traceIdSearch, setTraceIdSearch] = useState('')
@@ -590,6 +629,10 @@ export default function WorkflowDashboard() {
       const isBottleneck = showCriticalPath && criticalPathData?.bottleneck_component_id === n.id
       const isCriticalPath = showCriticalPath && !!cpComp
 
+      // Impact mode flags
+      const isImpactSource = impactMode && n.id === impactSourceId
+      const isAtRisk = impactMode && blastRadiusIds.has(n.id)
+
       return {
         ...n,
         type: 'dashboardNode',
@@ -610,11 +653,14 @@ export default function WorkflowDashboard() {
           isBottleneck,
           isCriticalPath,
           avgDurationMs: showCriticalPath ? cpComp?.avg_duration_ms : null,
-          pctOfMax: showCriticalPath ? cpComp?.pct_of_max : null
+          pctOfMax: showCriticalPath ? cpComp?.pct_of_max : null,
+          isImpactMode: impactMode,
+          isImpactSource,
+          isAtRisk,
         }
       }
     }).filter(Boolean)
-  }, [workflow, runtimeComponents, selectedNodeId, activeTraceId, tracePath, funnelData, criticalPathData, showCriticalPath])
+  }, [workflow, runtimeComponents, selectedNodeId, activeTraceId, tracePath, funnelData, criticalPathData, showCriticalPath, impactMode, impactSourceId, blastRadiusIds])
 
   // Build edges with styling
   const flowEdges = useMemo(() => {
@@ -634,6 +680,15 @@ export default function WorkflowDashboard() {
         color = '#f97316' // Orange for critical path
       }
 
+      // Impact mode edge styling
+      const isImpactSourceEdge = impactMode && e.source === impactSourceId
+      const isAtRiskEdge = impactMode && blastRadiusIds.has(e.source) && blastRadiusIds.has(e.target)
+
+      if (impactMode) {
+        if (isImpactSourceEdge) color = '#ef4444'
+        else if (isAtRiskEdge) color = '#fb923c'
+      }
+
       const direction = e.data?.direction || 'one-way'
       const commonLink = workflow.commonLink || ''
       const inTracePath = activeTraceId ? tracePath.includes(e.source) && tracePath.includes(e.target) : false
@@ -641,17 +696,20 @@ export default function WorkflowDashboard() {
       let opacity = 1
       if (activeTraceId && !inTracePath) opacity = 0.2
       if (showCriticalPath && !isBottleneckAdjacent) opacity = 0.3
+      if (impactMode && !isImpactSourceEdge && !isAtRiskEdge) opacity = 0.12
 
       let className = ''
       if (activeTraceId && inTracePath) className = 'edge-in-trace'
       if (isBottleneckAdjacent) className = 'edge-critical-path'
+      if (isImpactSourceEdge) className = 'edge-impact-source'
+      if (isAtRiskEdge) className = 'edge-at-risk'
 
       const edgeConfig = {
         ...e,
         animated: true,
         type: 'smoothstep',
         className,
-        style: { strokeWidth: 5, stroke: color, opacity },
+        style: { strokeWidth: impactMode && (isImpactSourceEdge || isAtRiskEdge) ? 6 : 5, stroke: color, opacity },
         markerEnd: { type: MarkerType.ArrowClosed, color, width: 28, height: 28, strokeWidth: 1 },
         label: commonLink || undefined,
         labelStyle: commonLink ? { fill: '#e2e8f0', fontSize: 11, fontWeight: 600, fontFamily: 'Inter, sans-serif', opacity } : undefined,
@@ -664,7 +722,7 @@ export default function WorkflowDashboard() {
       }
       return edgeConfig
     })
-  }, [workflow, runtimeComponents, activeTraceId, tracePath, showCriticalPath, criticalPathData])
+  }, [workflow, runtimeComponents, activeTraceId, tracePath, showCriticalPath, criticalPathData, impactMode, impactSourceId, blastRadiusIds])
 
   // Health panel nodes format
   const healthNodes = useMemo(() =>
@@ -954,6 +1012,26 @@ export default function WorkflowDashboard() {
               🔥 Critical Path
             </button>
 
+            <button
+              className={`btn-secondary ${impactMode ? 'btn-active' : ''}`}
+              style={{
+                borderColor: impactMode ? '#ef4444' : undefined,
+                color: impactMode ? '#f87171' : undefined,
+                background: impactMode ? 'rgba(239,68,68,0.1)' : undefined
+              }}
+              onClick={() => {
+                if (impactMode) {
+                  exitImpactMode()
+                } else if (selectedNodeId) {
+                  enterImpactMode(selectedNodeId)
+                }
+              }}
+              disabled={!selectedNodeId && !impactMode}
+              title={!selectedNodeId && !impactMode ? 'Select a node first to map its impact' : impactMode ? 'Exit Impact Mode' : 'Show Dependency Blast Radius'}
+            >
+              💥 Impact Map
+            </button>
+
             <form className="trace-search-form canvas-search-form" onSubmit={e => {
                performTrace(e)
                if (!isPanelOpen && traceIdSearch.trim()) setIsPanelOpen(true)
@@ -995,7 +1073,18 @@ export default function WorkflowDashboard() {
           </ReactFlow>
         </div>
 
-        {/* Right Panel */}
+        {/* Right Panel — Impact Summary (shown alongside node detail) */}
+        {impactMode && (
+          <ImpactSummaryPanel
+            sourceNode={runtimeComponents.find(c => c.id === impactSourceId) ? { id: impactSourceId } : null}
+            blastRadiusIds={blastRadiusIds}
+            allComponents={runtimeComponents}
+            edges={workflow?.edges || []}
+            onClose={exitImpactMode}
+          />
+        )}
+
+        {/* Right Panel — Node Detail */}
         {selectedNodeId && (
           <ErrorBoundary onReset={() => setSelectedNodeId(null)}>
             <NodeDetailPanel 
