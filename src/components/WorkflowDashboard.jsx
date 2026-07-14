@@ -992,7 +992,7 @@ export default function WorkflowDashboard() {
         <div className="graph-canvas">
           {/* Canvas Overlays — left pill group + right search */}
           <div className="canvas-overlays">
-            {/* Left: vertical tool pill group */}
+            {/* Left: vertical tool pill group including search */}
             <div className="canvas-tool-group">
               {!isPanelOpen && (
                 <button className="canvas-tool-btn" onClick={() => setIsPanelOpen(true)} title="Show Health Panel">
@@ -1021,21 +1021,21 @@ export default function WorkflowDashboard() {
                 <span className="canvas-tool-icon">💥</span>
                 <span className="canvas-tool-label">Impact Map</span>
               </button>
+              
+              {/* Entity search */}
+              <form className="canvas-search-form trace-search-form" onSubmit={e => {
+                performTrace(e)
+                if (!isPanelOpen && traceIdSearch.trim()) setIsPanelOpen(true)
+              }} style={{ marginTop: '4px' }}>
+                <input
+                  className="trace-search-input"
+                  placeholder="Track Entity (e.g. ORD-123)"
+                  value={traceIdSearch}
+                  onChange={e => setTraceIdSearch(e.target.value)}
+                />
+                <button type="submit" className="trace-search-btn"><FiSearch style={{ marginRight: '6px' }} /> Track</button>
+              </form>
             </div>
-
-            {/* Right: entity search */}
-            <form className="canvas-search-form trace-search-form" onSubmit={e => {
-              performTrace(e)
-              if (!isPanelOpen && traceIdSearch.trim()) setIsPanelOpen(true)
-            }}>
-              <input
-                className="trace-search-input"
-                placeholder="Track Entity (e.g. ORD-123)"
-                value={traceIdSearch}
-                onChange={e => setTraceIdSearch(e.target.value)}
-              />
-              <button type="submit" className="trace-search-btn"><FiSearch style={{ marginRight: '6px' }} /> Track</button>
-            </form>
           </div>
 
           <ReactFlow
